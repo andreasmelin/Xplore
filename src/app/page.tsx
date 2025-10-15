@@ -11,17 +11,69 @@ export default function Page() {
   const [input, setInput] = useState("");
   const [showDebug, setShowDebug] = useState(false);
   const [chat, setChat] = useState<{ id: string; role: "user" | "assistant"; text: string }[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  async function ensureSession(initialTitle: string): Promise<string> {
+    if (sessionId) return sessionId;
+    const title = initialTitle.slice(0, 60);
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`Create session failed: ${res.status} ${body?.error ?? ""}`);
+    }
+    const json = await res.json();
+    const id = json?.session?.id as string;
+    if (!id) throw new Error("No session id returned");
+    setSessionId(id);
+    return id;
+  }
+
+  async function persistMessage(id: string, role: "user" | "assistant", content: string) {
+    await fetch(`/api/sessions/${id}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, content }),
+    });
+  }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed) return;
-    const id = Math.random().toString(36).slice(2);
-    setChat((prev) => [...prev, { id, role: "user", text: trimmed }]);
+
+    // Optimistically render user message
+    const localUserId = Math.random().toString(36).slice(2);
+    setChat((prev) => [...prev, { id: localUserId, role: "user", text: trimmed }]);
     setInput("");
-    const reply = await complete(trimmed);
-    const rid = Math.random().toString(36).slice(2);
-    setChat((prev) => [...prev, { id: rid, role: "assistant", text: reply ?? "" }]);
+
+    try {
+      // Ensure we have a server session id
+      const sid = await ensureSession(trimmed);
+
+      // Persist user message (fire-and-forget)
+      void persistMessage(sid, "user", trimmed);
+
+      // Get assistant reply
+      const reply = await complete(trimmed);
+      const assistantText = reply ?? "";
+
+      // Render assistant reply
+      const localAssistantId = Math.random().toString(36).slice(2);
+      setChat((prev) => [...prev, { id: localAssistantId, role: "assistant", text: assistantText }]);
+
+      // Persist assistant message (fire-and-forget)
+      if (assistantText) {
+        void persistMessage(sid, "assistant", assistantText);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const localErrId = Math.random().toString(36).slice(2);
+      setChat((prev) => [...prev, { id: localErrId, role: "assistant", text: `Fel: ${message}` }]);
+    }
   }
 
   return (
@@ -50,6 +102,7 @@ export default function Page() {
           <div className="mb-5 rounded-2xl bg-white/80 p-3 shadow-inner">
             <div className="text-xs text-gray-700">
               <div className="mb-1">Status: <span className="font-semibold">{isLoading ? "streaming" : "ready"}</span></div>
+              <div className="mb-1">SessionId: <span className="font-mono break-all">{sessionId ?? "(none)"}</span></div>
               {error ? (
                 <div className="mb-2 text-red-600">Error: {error.message}</div>
               ) : null}
