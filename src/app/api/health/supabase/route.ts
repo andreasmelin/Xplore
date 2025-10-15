@@ -16,7 +16,13 @@ export async function GET() {
 
 	let authHealth: { ok: boolean; status?: number } = { ok: false };
 	try {
-		const res = await fetch(`${url}/auth/v1/health`, { method: "GET" });
+		const res = await fetch(`${url}/auth/v1/health`, {
+			method: "GET",
+			headers: {
+				apikey: anonKey,
+				Authorization: `Bearer ${anonKey}`,
+			},
+		});
 		authHealth = { ok: res.ok, status: res.status };
 	} catch {
 		authHealth = { ok: false };
