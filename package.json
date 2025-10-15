@@ -1,5 +1,5 @@
 {
-  "name": "yourapp",
+  "name": "xplore",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.44",
+    "@ai-sdk/react": "^2.0.60",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.74.0",
     "ai": "^5.0.60",
