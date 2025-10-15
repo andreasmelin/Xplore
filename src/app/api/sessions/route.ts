@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
 	const body = await req.json().catch(() => ({}));
