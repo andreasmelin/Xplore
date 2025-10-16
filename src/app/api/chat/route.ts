@@ -15,10 +15,13 @@ export async function POST(req: Request) {
   // Rate limit per user per day (fallback to IP if no user)
   const cookies = parseCookies(req.headers.get("cookie"));
   const userId = cookies["x_user_id"];
+  if (!userId) {
+    return Response.json({ error: "Not authenticated" }, { status: 401 });
+  }
   const action = "chat_request";
   const dailyLimit = 50; // can be tuned
   try {
-    const check = await checkAndIncrementDailyLimit(userId ?? req.headers.get("x-forwarded-for") ?? "anon", dailyLimit, action);
+    const check = await checkAndIncrementDailyLimit(userId, dailyLimit, action);
     if (!check.allowed) {
       return Response.json(
         { error: `Daily limit reached. Try again tomorrow.` },

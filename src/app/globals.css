@@ -20,7 +20,14 @@
 }
 
 body {
-  background: var(--background);
+  /* Galaxy background image (place your file at public/space.jpg) */
+  background-color: #03050d;
+  /* Fallback to .jpeg if .jpg isn't present */
+  background-image: linear-gradient(180deg, rgba(3,5,13,0.65), rgba(3,5,13,0.85)), url('/space.jpg'), url('/space.jpeg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
 }
