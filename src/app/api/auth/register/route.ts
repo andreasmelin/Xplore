@@ -1,12 +1,12 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { parseCookies, serializeCookie, setCookieOnResponse } from "@/lib/auth/cookies";
+import { serializeCookie, setCookieOnResponse } from "@/lib/auth/cookies";
 
 // Cookie names
 const USER_COOKIE = "x_user_id";
 const EMAIL_COOKIE = "x_user_email";
 
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({} as any));
+  const body = (await req.json().catch(() => ({}))) as { email?: string };
   const emailRaw = typeof body?.email === "string" ? body.email : "";
   const email = emailRaw.trim().toLowerCase();
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
