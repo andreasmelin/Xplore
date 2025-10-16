@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useCompletion } from "@ai-sdk/react";
 
 export default function Page() {
@@ -12,6 +12,13 @@ export default function Page() {
   const [showDebug, setShowDebug] = useState(false);
   const [chat, setChat] = useState<{ id: string; role: "user" | "assistant"; text: string }[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+  const [emailInput, setEmailInput] = useState("");
+  const [profiles, setProfiles] = useState<{ id: string; name: string; age: number }[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [newProfileAge, setNewProfileAge] = useState<number | "">("");
+  const [quota, setQuota] = useState<{ remaining: number; limit: number; resetAt: string } | null>(null);
 
   async function ensureSession(initialTitle: string): Promise<string> {
     if (sessionId) return sessionId;
@@ -40,10 +47,96 @@ export default function Page() {
     });
   }
 
+  useEffect(() => {
+    async function init() {
+      try {
+        const [meRes, profilesRes, limitsRes] = await Promise.all([
+          fetch("/api/auth/me"),
+          fetch("/api/profiles"),
+          fetch("/api/limits/daily"),
+        ]);
+        const meJson = await meRes.json().catch(() => ({}));
+        setUser(meJson?.user ?? null);
+        const profilesJson = await profilesRes.json().catch(() => ({}));
+        const list: { id: string; name: string; age: number }[] = profilesJson?.profiles ?? [];
+        setProfiles(list);
+        const stored = typeof window !== "undefined" ? window.localStorage.getItem("activeProfileId") : null;
+        if (stored && list.some((p) => p.id === stored)) setActiveProfileId(stored);
+        const limitsJson = await limitsRes.json().catch(() => ({}));
+        if (limitsJson?.status) setQuota(limitsJson.status);
+      } catch {
+        // ignore
+      }
+    }
+    void init();
+  }, []);
+
+  async function refreshQuota() {
+    try {
+      const res = await fetch("/api/limits/daily");
+      if (res.ok) {
+        const json = await res.json().catch(() => ({}));
+        if (json?.status) setQuota(json.status);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (activeProfileId) {
+      window.localStorage.setItem("activeProfileId", activeProfileId);
+    }
+  }, [activeProfileId]);
+
+  const activeProfile = useMemo(() => profiles.find((p) => p.id === activeProfileId) ?? null, [profiles, activeProfileId]);
+
+  async function onRegister(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const email = emailInput.trim();
+    if (!email) return;
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) return; // simple UX
+    const json = await res.json().catch(() => ({}));
+    setUser(json?.user ?? null);
+    void refreshQuota();
+  }
+
+  async function onAddProfile(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const name = newProfileName.trim();
+    const age = typeof newProfileAge === "number" ? newProfileAge : parseInt(String(newProfileAge || "0"), 10);
+    if (!name || !Number.isFinite(age)) return;
+    const res = await fetch("/api/profiles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, age }),
+    });
+    if (!res.ok) return;
+    const json = await res.json().catch(() => ({}));
+    const created = json?.profile as { id: string; name: string; age: number } | undefined;
+    if (created) {
+      setProfiles((prev) => [...prev, created]);
+      setActiveProfileId(created.id);
+      setNewProfileName("");
+      setNewProfileAge("");
+    }
+  }
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed) return;
+
+    const prefix = activeProfile
+      ? `Du pratar med ett barn som heter ${activeProfile.name} som är ${activeProfile.age} år gammal. Svara enkelt, vänligt och på svenska, anpassat till åldern.\n\n`
+      : "";
+    const finalPrompt = `${prefix}${trimmed}`;
 
     // Optimistically render user message
     const localUserId = Math.random().toString(36).slice(2);
@@ -58,7 +151,7 @@ export default function Page() {
       void persistMessage(sid, "user", trimmed);
 
       // Get assistant reply
-      const reply = await complete(trimmed);
+      const reply = await complete(finalPrompt);
       const assistantText = reply ?? "";
 
       // Render assistant reply
@@ -69,10 +162,12 @@ export default function Page() {
       if (assistantText) {
         void persistMessage(sid, "assistant", assistantText);
       }
+      void refreshQuota();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const localErrId = Math.random().toString(36).slice(2);
       setChat((prev) => [...prev, { id: localErrId, role: "assistant", text: `Fel: ${message}` }]);
+      void refreshQuota();
     }
   }
 
@@ -88,7 +183,47 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="flex justify-end mb-3">
+        <div className="flex justify-between items-center mb-3 gap-3 flex-wrap">
+          <div className="text-xs text-gray-700 bg-white/70 rounded-full px-3 py-1 shadow flex items-center gap-2">
+            {user ? (
+              <>
+                <span>Inloggad: <span className="font-semibold">{user.email}</span></span>
+                {profiles.length ? (
+                  <>
+                    <span className="opacity-60">•</span>
+                    <label className="hidden sm:block">Profil:</label>
+                    <select
+                      className="text-xs bg-white/0 border border-gray-300 rounded-full px-2 py-1"
+                      value={activeProfileId ?? ""}
+                      onChange={(e) => setActiveProfileId(e.target.value || null)}
+                    >
+                      <option value="">Ingen</option>
+                      {profiles.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.age})</option>
+                      ))}
+                    </select>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <form onSubmit={onRegister} className="flex items-center gap-1">
+                <input
+                  className="text-xs rounded-full px-2 py-1 border border-gray-300 bg-white/80"
+                  placeholder="Din e-post"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                />
+                <button className="text-xs rounded-full px-3 py-1 bg-pink-500 text-white">Registrera</button>
+              </form>
+            )}
+          </div>
+          <div className="text-xs text-gray-700 bg-white/70 rounded-full px-3 py-1 shadow">
+            {quota ? (
+              <span>Kvar idag: <span className="font-semibold">{quota.remaining}</span> / {quota.limit}</span>
+            ) : (
+              <span>Kvar idag: –</span>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => setShowDebug((v) => !v)}
@@ -97,6 +232,31 @@ export default function Page() {
             {showDebug ? "Hide Debug" : "Debug info"} 🔎
           </button>
         </div>
+
+        {user ? (
+          <div className="mb-4 rounded-2xl bg-white/80 p-3 shadow-inner">
+            <div className="text-sm font-semibold mb-2">Profiler</div>
+            {profiles.length === 0 ? (
+              <div className="text-xs text-gray-600 mb-2">Lägg till en profil för att anpassa svar efter ålder.</div>
+            ) : null}
+            <form onSubmit={onAddProfile} className="flex items-center gap-2 flex-wrap">
+              <input
+                className="text-sm rounded-full px-3 py-2 border border-gray-300 bg-white/90"
+                placeholder="Namn"
+                value={newProfileName}
+                onChange={(e) => setNewProfileName(e.target.value)}
+              />
+              <input
+                className="text-sm rounded-full px-3 py-2 border border-gray-300 bg-white/90 w-24"
+                placeholder="Ålder"
+                inputMode="numeric"
+                value={newProfileAge}
+                onChange={(e) => setNewProfileAge(e.target.value ? Number(e.target.value) : "")}
+              />
+              <button className="text-sm rounded-full px-4 py-2 bg-sky-500 text-white">Lägg till</button>
+            </form>
+          </div>
+        ) : null}
 
         {showDebug ? (
           <div className="mb-5 rounded-2xl bg-white/80 p-3 shadow-inner">
