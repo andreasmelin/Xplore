@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         const byId = await supabase.from("app_user").select("id").eq("id", userId).maybeSingle();
         const byEmail = emailCookie
             ? await supabase.from("app_user").select("id").eq("email", emailCookie).maybeSingle()
-            : { data: null } as any;
+            : { data: null } as { data: unknown };
         return Response.json(
             {
                 error: error.message,
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
                     emailCookie: emailCookie ?? null,
                     userIdTried: userId,
                     userByIdExists: !!byId.data,
-                    userByEmailExists: !!(byEmail as any).data,
+                    userByEmailExists: !!byEmail.data,
                 },
             },
             { status: 400 }

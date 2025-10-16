@@ -1,7 +1,9 @@
 export const runtime = "edge";
 
+type RealtimeSessionRequest = { voice?: string };
+
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({} as any));
+  const body = (await req.json().catch(() => ({}))) as RealtimeSessionRequest;
   const voice = typeof body?.voice === "string" && body.voice.trim() ? body.voice.trim() : "alloy";
   const modelPrimary = "gpt-4o-realtime-preview-2024-12-17";
   const modelFallback = "gpt-4o-realtime-preview";

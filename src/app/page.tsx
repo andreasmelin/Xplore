@@ -251,21 +251,7 @@ export default function Page() {
     }
   }
 
-  async function onRegister(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const email = emailInput.trim();
-    if (!email) return;
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    if (!res.ok) return; // simple UX
-    const json = await res.json().catch(() => ({}));
-    setUser(json?.user ?? null);
-    void refreshQuota();
-    void reloadProfiles();
-  }
+  // (legacy) inline register is no longer used
 
   async function onLoginSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
