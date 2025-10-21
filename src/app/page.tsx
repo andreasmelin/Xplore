@@ -845,7 +845,7 @@ export default function Page() {
                           onClick={() => setAddProfileOpen(true)}
                           className="text-xs rounded-full px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white"
                         >
-                          Ny profil
+                          Skapa profil
                         </button>
                       </>
                     ) : null}
