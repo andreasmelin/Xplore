@@ -13,7 +13,7 @@ export default function Page() {
   const [chat, setChat] = useState<{ id: string; role: "user" | "assistant"; text: string }[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
-  const [emailInput, setEmailInput] = useState("");
+  // removed unused emailInput state (legacy)
   const [profiles, setProfiles] = useState<{ id: string; name: string; age: number }[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [newProfileName, setNewProfileName] = useState("");
@@ -28,7 +28,7 @@ export default function Page() {
   const [showSetup, setShowSetup] = useState(false);
   const [ttsOn, setTtsOn] = useState(true);
   const [ttsProvider, setTtsProvider] = useState<"openai-realtime" | "openai-rest" | "elevenlabs" | "elevenlabs-stream" | "browser">(() => {
-    if (typeof window !== "undefined") return (window.localStorage.getItem("ttsProvider") as any) || "openai-rest";
+    if (typeof window !== "undefined") return (window.localStorage.getItem("ttsProvider") as "openai-realtime" | "openai-rest" | "elevenlabs" | "elevenlabs-stream" | "browser" | null) || "openai-rest";
     return "openai-rest";
   });
   const [speakAsap, setSpeakAsap] = useState<boolean>(() => {
@@ -179,7 +179,7 @@ export default function Page() {
     refreshVoices();
     window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
     return () => window.speechSynthesis.removeEventListener("voiceschanged", refreshVoices);
-  }, []);
+  }, [browserVoiceName]);
 
   async function ensureRealtimeConnection(): Promise<RTCDataChannel | null> {
     if (!realtimeEnabled) return null;
@@ -193,7 +193,7 @@ export default function Page() {
       setAudioStatus("Kopplar upp ljud…");
       const tokenRes = await fetch('/api/realtime/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voice: openAiVoice }) });
       if (!tokenRes.ok) return null;
-      const { session, model } = await tokenRes.json();
+      const { session, model } = (await tokenRes.json().catch(() => ({}))) as { session: { client_secret: { value: string } } | undefined; model?: string };
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
       const audio = new Audio();
@@ -368,7 +368,7 @@ export default function Page() {
       const resp = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: sentence, voice: openAiVoice || 'alloy', format: 'opus', provider }) });
       if (!resp.ok) {
         try {
-          const err = await resp.json().catch(() => ({} as any));
+          const err = await resp.json().catch(() => ({} as unknown as { error?: string }));
           console.warn('[TTS] Error', provider, err?.error || resp.status);
           setAudioStatus(typeof err?.error === 'string' ? err.error : 'TTS fel');
         } catch {}
@@ -715,7 +715,7 @@ export default function Page() {
                   timeoutMs: 15000,
                 });
                 if (!resp.ok) {
-                  const err = await resp.json().catch(() => ({} as any));
+                  const err = await resp.json().catch(() => ({} as unknown as { error?: string }));
                   setAudioStatus(typeof err?.error === 'string' ? err.error : 'TTS fel');
                   // Fallback to OpenAI REST if ElevenLabs is busy
                   setAudioStatus("ElevenLabs upptagen – faller tillbaka till OpenAI…");

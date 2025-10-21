@@ -27,7 +27,8 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (findErr) return Response.json({ error: findErr.message }, { status: 400 });
 
-  let user = existing;
+  type AppUser = { id: string; email: string; password_hash?: string | null };
+  let user: AppUser | null = existing as AppUser | null;
   if (!existing) {
     // Register new user
     const password_hash = hashPassword(password);
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
       .select("id, email")
       .single();
     if (insertErr) return Response.json({ error: insertErr.message }, { status: 400 });
-    user = created as any;
+    user = created as unknown as AppUser;
   } else {
     // Existing user
     if (!existing.password_hash) {
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
         .select("id, email")
         .single();
       if (updErr) return Response.json({ error: updErr.message }, { status: 400 });
-      user = updated as any;
+      user = updated as unknown as AppUser;
     } else {
       // Verify password
       const ok = verifyPassword(password, existing.password_hash);
@@ -58,8 +59,8 @@ export async function POST(req: Request) {
     }
   }
 
-  const res = Response.json({ user: { id: user!.id, email: user!.email } });
-  const cookieUser = serializeCookie(USER_COOKIE, user.id, {
+  const res = Response.json({ user: { id: (user as AppUser).id, email: (user as AppUser).email } });
+  const cookieUser = serializeCookie(USER_COOKIE, (user as AppUser).id, {
     httpOnly: true,
     path: "/",
     sameSite: "lax",
