@@ -17,7 +17,8 @@ export function verifyPassword(password: string, stored: string): boolean {
     const iter = parseInt(iterStr, 10) || PBKDF2_ITER;
     const salt = Buffer.from(saltB64, "base64");
     const expected = Buffer.from(hashB64, "base64");
-    const derived = crypto.pbkdf2Sync(password, salt, iter, expected.length, (digest as any) || DIGEST);
+    const algo: crypto.BinaryLike | string = (digest || DIGEST) as string;
+    const derived = crypto.pbkdf2Sync(password, salt, iter, expected.length, algo);
     return crypto.timingSafeEqual(derived, expected);
   } catch {
     return false;

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useCompletion } from "@ai-sdk/react";
+import Image from "next/image";
 
 export default function Page() {
   const { completion, complete, isLoading, error } = useCompletion({
@@ -345,22 +346,7 @@ export default function Page() {
     return parts;
   }
 
-  async function playSentenceWithTts(sentence: string): Promise<void> {
-    setAudioStatus("Genererar ljud…");
-    const resp = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: sentence, voice: openAiVoice || 'alloy', format: 'opus' }) });
-    if (!resp.ok) return;
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    sentenceAudioRef.current?.pause?.();
-    sentenceAudioRef.current = audio;
-    await new Promise<void>((resolve) => {
-      audio.onplay = () => setAudioStatus("Spelar…");
-      audio.onended = () => { setAudioStatus(null); resolve(); };
-      audio.onerror = () => resolve();
-      void audio.play().catch(() => resolve());
-    });
-  }
+  // Was previously used for a non-streaming TTS path; currently not needed
 
   // Prefetch one sentence's audio and return an object URL
   async function fetchTtsUrl(sentence: string, provider?: "openai" | "elevenlabs"): Promise<string | null> {
@@ -625,7 +611,7 @@ export default function Page() {
         if (!ok) setAudioStatus("Kunde inte starta Realtime – försöker fallback…");
       }
       // Get assistant reply (text for UI) and include active profile id for server-side system message
-      const reply = await complete(finalPrompt, { body: { profileId: activeProfile?.id ?? activeProfileId ?? null } as any });
+      const reply = await complete(finalPrompt, { body: { profileId: activeProfile?.id ?? activeProfileId ?? null } as unknown });
       const assistantText = reply ?? "";
 
       // Prepare sentence list and assistant message shell
@@ -776,10 +762,13 @@ export default function Page() {
       <div className="mx-auto max-w-3xl p-6">
         <div className="mb-4">
           <div className="flex flex-col items-center justify-center text-indigo-100/90">
-            <img
+            <Image
               src="/logos/sinus-logo-1024px.png"
               alt="Sinus"
+              width={96}
+              height={96}
               className="h-24 w-24 rounded-xl object-cover shadow"
+              priority
             />
             <div className="mt-1 text-[21px] brand-title drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">Lär med Sinus</div>
           </div>
