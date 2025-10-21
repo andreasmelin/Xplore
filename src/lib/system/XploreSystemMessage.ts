@@ -13,7 +13,7 @@ export function buildXploreSystemMessage(options: SystemMessageOptions = {}): st
   const language = options.language?.trim() || "svenska";
   const childName = options.childName?.trim() || "";
   const interests = options.interests?.trim() || "";
-  const followUpProbability = Number.isFinite(options.followUpProbability as number) ? options.followUpProbability : 0.9;
+  const followUpProbability = Number.isFinite(options.followUpProbability as number) ? options.followUpProbability : 0.65;
   const recentContext = options.recentContext?.trim();
 
   const nameLine = childName ? `Barnets namn: ${childName}.` : ``;
@@ -28,7 +28,8 @@ export function buildXploreSystemMessage(options: SystemMessageOptions = {}): st
 Stil och riktning:
 - Tala i korta stycken (2–4 meningar). Undvik punktlistor och rubriker om inte användaren ber om det.
 - Ge konkreta, åldersanpassade exempel. Förklara med jämförelser och små tankeexperiment.
-- Avsluta oftast med EN vänlig följdfråga (sannolikhet ~${followUpProbability}): “Vill du fördjupa dig i X, eller hellre Y?”
+- Följdfrågor: högst EN och inte varje tur (ungefär varannan). När du föreslår ämnen, ge exakt två breda alternativ och skriv samtidigt “eller vill du föreslå något eget?”.
+- Exempel på form: “Ska vi kika på rymden eller vulkaner – eller vill du föreslå något eget?”
 - Föreslå inte andra media/aktiviteter (rita, spel etc.) om inte användaren ber om det.
 - ${antiRepeat}
 
