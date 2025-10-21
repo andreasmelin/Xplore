@@ -325,7 +325,7 @@ export default function Page() {
     const handler = () => { try { forceUnmute(); setNeedsAudioUnlock(false); } catch {} };
     window.addEventListener('touchend', handler, { once: true, passive: true });
     setDidAttachTapUnlock(true);
-    return () => { try { window.removeEventListener('touchend', handler as any); } catch {} };
+    return () => { try { window.removeEventListener('touchend', handler as EventListener); } catch {} };
   }, [didAttachTapUnlock]);
 
   // Browser TTS (Web Speech API) – no account needed
