@@ -11,9 +11,9 @@ export const runtime = "edge";
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await req.json().catch(() => ({}))) as { prompt?: string; messages?: unknown; profileId?: string; recentContext?: string };
   const prompt: string | undefined = typeof body?.prompt === "string" ? body.prompt : undefined;
-  const messagesInput = Array.isArray((body as any)?.messages) ? (body as any).messages : undefined;
+  const messagesInput = Array.isArray(body?.messages as unknown[]) ? (body?.messages as unknown[]) : undefined;
   const profileId: string | undefined = typeof body?.profileId === "string" && (body.profileId as string).trim() ? (body.profileId as string).trim() : undefined;
   const recentContext: string | undefined = typeof body?.recentContext === "string" && (body.recentContext as string).trim() ? (body.recentContext as string).trim() : undefined;
 
