@@ -305,7 +305,11 @@ export default function Page() {
       // Ensure a Web Audio context is resumed (iOS policy)
       if (typeof window !== 'undefined') {
         if (!audioCtxRef.current) {
-          try { audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)(); } catch {}
+          try {
+            const w = window as unknown as { webkitAudioContext?: typeof AudioContext };
+            const Ctor = w.webkitAudioContext ?? window.AudioContext;
+            if (Ctor) audioCtxRef.current = new Ctor();
+          } catch {}
         }
         const ctx = audioCtxRef.current;
         if (ctx && ctx.state !== 'running') {
@@ -327,14 +331,14 @@ export default function Page() {
       if (audioEl) {
         audioEl.muted = false;
         audioEl.volume = 1;
-        (audioEl as any).playsInline = true;
+        try { audioEl.setAttribute('playsinline', 'true'); } catch {}
         void audioEl.play().catch(() => {});
       }
       const sentenceEl = sentenceAudioRef.current;
       if (sentenceEl) {
         sentenceEl.muted = false;
         sentenceEl.volume = 1;
-        (sentenceEl as any).playsInline = true;
+        try { sentenceEl.setAttribute('playsinline', 'true'); } catch {}
         void sentenceEl.play().catch(() => {});
       }
       setAudioStatus("Upplåst ljud");
