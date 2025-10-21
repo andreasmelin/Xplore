@@ -220,7 +220,7 @@ export default function Page() {
           audio.onplay = () => {
             if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; }
           };
-          void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck ‘Aktivera ljud’"); });
+          void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck ‘Aktivera ljud’"); setShowMagic(false); overlayClearedRef.current = true; });
         } catch { setNeedsAudioUnlock(true); }
       };
       audio.onended = () => { setAudioStatus(null); };
@@ -401,7 +401,7 @@ export default function Page() {
       audio.onplay = () => {
         if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; }
       };
-      void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck ‘Aktivera ljud’"); URL.revokeObjectURL(url); resolve(); });
+      void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck ‘Aktivera ljud’"); setShowMagic(false); overlayClearedRef.current = true; URL.revokeObjectURL(url); resolve(); });
     });
   }
 
@@ -686,7 +686,7 @@ export default function Page() {
                   audio.onended = () => { resolve(); };
                   audio.onerror = () => { resolve(); };
                   audio.onplay = () => { if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; } };
-                  void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck ‘Aktivera ljud’"); resolve(); });
+                  void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck ‘Aktivera ljud’"); setShowMagic(false); overlayClearedRef.current = true; resolve(); });
                 });
                 if (playbackTokenRef.current === tokenAtStart) setAudioStatus(null);
               } catch {
