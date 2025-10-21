@@ -77,6 +77,27 @@ Notes:
 - `GET/POST /api/profiles` lists and creates profiles for the current user.
 - `/api/chat` enforces a per-user daily limit using `usage_log`.
 
+### Migration: password support
+
+Run this SQL on both DEV and PROD to add `password_hash` and ensure unique emails:
+
+```sql
+BEGIN;
+ALTER TABLE public.app_user ADD COLUMN IF NOT EXISTS password_hash text;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.app_user'::regclass AND conname = 'app_user_email_key'
+  ) THEN
+    ALTER TABLE public.app_user ADD CONSTRAINT app_user_email_key UNIQUE (email);
+  END IF;
+END $$;
+COMMIT;
+```
+
+Existing users will have `password_hash` as NULL and set a password on first successful login.
+
 ## Environment variables and environments
 
 Create two Supabase projects: one for development and one for production.

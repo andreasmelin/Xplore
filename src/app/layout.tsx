@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Chewy } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,8 +13,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const brandFont = Chewy({
+  variable: "--font-brand",
+  subsets: ["latin"],
+  weight: ["400"],
+});
+
 export const metadata: Metadata = {
-  title: "Ottos robot - BETA",
+  title: "Lär med Sinus",
   description: "Desc",
 };
 
@@ -24,9 +31,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <head>
+        <link rel="icon" type="image/png" sizes="16x16" href="/logos/sinus-logo-1024px.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/logos/sinus-logo-1024px.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/logos/sinus-logo-1024px.png" />
+        <link rel="shortcut icon" href="/logos/sinus-logo-1024px.png" />
+        <link rel="apple-touch-icon" href="/logos/sinus-logo-1024px.png" />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${brandFont.variable} antialiased`}>
         {children}
       </body>
     </html>

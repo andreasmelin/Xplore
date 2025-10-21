@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     }
   }
   const json = await upstream.json();
-  return Response.json({ session: json });
+  return Response.json({ session: json, model: json?.model || modelPrimary });
 }
 
 
