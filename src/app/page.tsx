@@ -194,7 +194,7 @@ export default function Page() {
       setAudioStatus("Kopplar upp ljud…");
       const tokenRes = await fetch('/api/realtime/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voice: openAiVoice }) });
       if (!tokenRes.ok) return null;
-      const { session, model } = (await tokenRes.json().catch(() => ({}))) as { session: { client_secret: { value: string } } | undefined; model?: string };
+      const { session, model } = (await tokenRes.json().catch(() => ({}))) as { session?: { client_secret?: { value?: string } }; model?: string };
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
       const audio = new Audio();
@@ -239,7 +239,12 @@ export default function Page() {
       });
       const localSdp = pc.localDescription?.sdp || offer.sdp;
       const apiModel = model || 'gpt-4o-realtime-preview-2024-12-17';
-      const sdpRes = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(apiModel)}`, { method: 'POST', body: localSdp, headers: { 'Authorization': `Bearer ${session.client_secret.value}`, 'Content-Type': 'application/sdp', 'OpenAI-Beta': 'realtime=v1' } });
+      const sessionToken = session?.client_secret?.value;
+      if (!sessionToken) {
+        setAudioStatus('Realtime: saknar sessionstoken');
+        return null;
+      }
+      const sdpRes = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(apiModel)}`, { method: 'POST', body: localSdp, headers: { 'Authorization': `Bearer ${sessionToken}`, 'Content-Type': 'application/sdp', 'OpenAI-Beta': 'realtime=v1' } });
       if (!sdpRes.ok) {
         setAudioStatus('Realtime fel vid SDP-svar');
         return null;
