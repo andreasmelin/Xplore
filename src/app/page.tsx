@@ -29,8 +29,8 @@ export default function Page() {
   const [showSetup, setShowSetup] = useState(false);
   const [ttsOn, setTtsOn] = useState(true);
   const [ttsProvider, setTtsProvider] = useState<"openai-realtime" | "openai-rest" | "elevenlabs" | "elevenlabs-stream" | "browser">(() => {
-    if (typeof window !== "undefined") return (window.localStorage.getItem("ttsProvider") as "openai-realtime" | "openai-rest" | "elevenlabs" | "elevenlabs-stream" | "browser" | null) || "openai-rest";
-    return "openai-rest";
+    if (typeof window !== "undefined") return (window.localStorage.getItem("ttsProvider") as "openai-realtime" | "openai-rest" | "elevenlabs" | "elevenlabs-stream" | "browser" | null) || "elevenlabs-stream";
+    return "elevenlabs-stream";
   });
   const [speakAsap, setSpeakAsap] = useState<boolean>(() => {
     if (typeof window !== "undefined") return (window.localStorage.getItem("ttsSpeakAsap") === "0" ? false : true);
