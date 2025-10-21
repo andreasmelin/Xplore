@@ -826,29 +826,27 @@ export default function Page() {
                 {user ? (
                   <>
                     <span>E‑post: <span className="font-semibold">{user.email}</span></span>
-                    {profiles.length ? (
-                      <>
-                        <span className="opacity-60">•</span>
-                        <label className="hidden sm:block">Profil:</label>
-                        <select
-                          className="text-xs bg-white border border-gray-300 text-gray-700 rounded-full px-2 py-1"
-                          value={activeProfileId ?? ""}
-                          onChange={(e) => setActiveProfileId(e.target.value || null)}
-                        >
-                          <option value="">Ingen</option>
-                          {profiles.map((p) => (
-                            <option key={p.id} value={p.id}>{p.name} ({p.age})</option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => setAddProfileOpen(true)}
-                          className="text-xs rounded-full px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white"
-                        >
-                          Skapa profil
-                        </button>
-                      </>
-                    ) : null}
+                    <span className="opacity-60">•</span>
+                    <label className="hidden sm:block">Profil:</label>
+                    <select
+                      className="text-xs bg-white border border-gray-300 text-gray-700 rounded-full px-2 py-1"
+                      value={activeProfileId ?? ""}
+                      onChange={(e) => setActiveProfileId(e.target.value || null)}
+                      disabled={!profiles.length}
+                      title={profiles.length ? "Välj profil" : "Inga profiler – skapa en"}
+                    >
+                      <option value="">Ingen</option>
+                      {profiles.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.age})</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setAddProfileOpen(true)}
+                      className="text-xs rounded-full px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white"
+                    >
+                      Skapa profil
+                    </button>
                   </>
                 ) : (
                   <button onClick={() => setLoginOpen(true)} className="text-xs rounded-full px-3 py-1 bg-pink-500 text-white">Logga in</button>
