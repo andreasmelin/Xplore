@@ -120,6 +120,9 @@ export default function Page() {
           const first = list[0];
           setActiveProfileId(first.id);
           try { if (typeof window !== "undefined") window.localStorage.setItem("activeProfileId", first.id); } catch {}
+        } else if (me && list.length === 0) {
+          // No profiles for this account; prompt to create one
+          setAddProfileOpen(true);
         }
         const limitsJson = await limitsRes.json().catch(() => ({}));
         if (limitsJson?.status) setQuota(limitsJson.status);
@@ -450,6 +453,9 @@ export default function Page() {
         const first = list[0];
         setActiveProfileId(first.id);
         try { if (typeof window !== "undefined") window.localStorage.setItem("activeProfileId", first.id); } catch {}
+      } else if (user && list.length === 0) {
+        // Logged in but no profiles: open add-profile modal
+        setAddProfileOpen(true);
       }
     } catch {
       // ignore
