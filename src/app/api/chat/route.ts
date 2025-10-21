@@ -74,7 +74,7 @@ export async function POST(req: Request) {
           model: openai(settings.model),
           messages: [
             { role: "system", content: system },
-            ...convertToCoreMessages(messagesInput ?? []),
+            ...convertToCoreMessages((messagesInput ?? []) as Parameters<typeof convertToCoreMessages>[0]),
           ],
           temperature: settings.temperature,
           ...(settings.topP !== undefined ? { topP: settings.topP } : {}),

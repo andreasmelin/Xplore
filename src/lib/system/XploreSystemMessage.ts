@@ -9,7 +9,6 @@ export type SystemMessageOptions = {
 };
 
 export function buildXploreSystemMessage(options: SystemMessageOptions = {}): string {
-  const _age = Number.isFinite(options.age as number) ? (options.age as number) : undefined; // reserved for future use
   const persona = options.personaName?.trim() || "Roboten Sinus";
   const language = options.language?.trim() || "svenska";
   const childName = options.childName?.trim() || "";
