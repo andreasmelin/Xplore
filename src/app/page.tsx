@@ -676,8 +676,14 @@ export default function Page() {
         const ok = await speakWithRealtime(finalPrompt);
         if (!ok) setAudioStatus("Kunde inte starta Realtime – försöker fallback…");
       }
-      // Get assistant reply (text for UI) and include active profile id for server-side system message
-      const reply = await complete(finalPrompt, { body: { profileId: activeProfile?.id ?? activeProfileId ?? null } as Record<string, unknown> });
+      // Build recent-context summary to reduce repetition
+      const lastFew = [...chat].slice(-6);
+      const topics = lastFew
+        .map(m => m.text)
+        .join(" \n ")
+        .slice(0, 400);
+      // Get assistant reply (text for UI) and include active profile id + recentContext for server-side system message
+      const reply = await complete(finalPrompt, { body: { profileId: activeProfile?.id ?? activeProfileId ?? null, recentContext: topics } as Record<string, unknown> });
       const assistantText = reply ?? "";
 
       // Prepare sentence list and assistant message shell

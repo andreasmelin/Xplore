@@ -11,10 +11,11 @@ export const runtime = "edge";
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const prompt: string | undefined = typeof body?.prompt === "string" ? body.prompt : undefined;
-  const messagesInput = Array.isArray(body?.messages) ? body.messages : undefined;
-  const profileId: string | undefined = typeof body?.profileId === "string" && body.profileId.trim() ? body.profileId.trim() : undefined;
+  const messagesInput = Array.isArray((body as any)?.messages) ? (body as any).messages : undefined;
+  const profileId: string | undefined = typeof body?.profileId === "string" && (body.profileId as string).trim() ? (body.profileId as string).trim() : undefined;
+  const recentContext: string | undefined = typeof body?.recentContext === "string" && (body.recentContext as string).trim() ? (body.recentContext as string).trim() : undefined;
 
   // Rate limit per user per day (fallback to IP if no user)
   const cookies = parseCookies(req.headers.get("cookie"));
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const system = buildXploreSystemMessage({ age: profileAge, personaName: "Roboten Sinus" });
+  const system = buildXploreSystemMessage({ age: profileAge, personaName: "Roboten Sinus", recentContext });
   const settings = getXploreSettings();
 
   const result = await streamText(
