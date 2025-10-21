@@ -4,6 +4,7 @@ import { parseCookies } from "@/lib/auth/cookies";
 import { checkAndIncrementDailyLimit } from "@/lib/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildXploreSystemMessage } from "@/lib/system/XploreSystemMessage";
+import { pickTwoTopics } from "@/lib/system/topics";
 import { getXploreSettings } from "@/lib/system/XploreSystemSettings";
 
 export const runtime = "edge";
@@ -54,7 +55,9 @@ export async function POST(req: Request) {
     }
   }
 
-  const system = buildXploreSystemMessage({ age: profileAge, personaName: "Roboten Sinus", recentContext });
+  const [t1, t2] = pickTwoTopics(recentContext, undefined);
+  const suggestedTopics = `${t1.label} och ${t2.label}`;
+  const system = buildXploreSystemMessage({ age: profileAge, personaName: "Roboten Sinus", recentContext, suggestedTopics });
   const settings = getXploreSettings();
 
   const result = await streamText(

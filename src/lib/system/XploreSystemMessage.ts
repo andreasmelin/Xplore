@@ -6,6 +6,7 @@ export type SystemMessageOptions = {
   interests?: string;
   followUpProbability?: number; // 0..1 – sannolikhet att avsluta med EN följdfråga
   recentContext?: string;       // 1–3 korta punkter från de senaste 5–6 inläggen att inte upprepa
+  suggestedTopics?: string;     // “rymden” och “vulkaner” – eller uppmana eget förslag
 };
 
 export function buildXploreSystemMessage(options: SystemMessageOptions = {}): string {
@@ -15,6 +16,7 @@ export function buildXploreSystemMessage(options: SystemMessageOptions = {}): st
   const interests = options.interests?.trim() || "";
   const followUpProbability = Number.isFinite(options.followUpProbability as number) ? options.followUpProbability : 0.65;
   const recentContext = options.recentContext?.trim();
+  const suggested = options.suggestedTopics?.trim();
 
   const nameLine = childName ? `Barnets namn: ${childName}.` : ``;
   const interestsLine = interests ? `Intressen: ${interests}.` : ``;
@@ -50,6 +52,9 @@ Output‑format:
 - En eller två korta paragrafer, sedan EN liten följdfråga som hjälper barnet att välja nästa steg.
 - Inga punktlistor om inte användaren ber om det.
 - Korta meningar, lätt språk (A1–A2), tydliga pauser för TTS.
+${suggested ? `
+Förslag denna tur (använd exakt två): ${suggested} — skriv också “eller vill du föreslå något eget?”.
+` : ""}
 `
   );
 }
