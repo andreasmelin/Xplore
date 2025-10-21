@@ -121,7 +121,8 @@ export default function Page() {
           setActiveProfileId(first.id);
           try { if (typeof window !== "undefined") window.localStorage.setItem("activeProfileId", first.id); } catch {}
         } else if (me && list.length === 0) {
-          // No profiles for this account; prompt to create one
+          // No profiles for this account; open account panel and prompt to create one
+          setShowAccountPanel(true);
           setAddProfileOpen(true);
         }
         const limitsJson = await limitsRes.json().catch(() => ({}));
@@ -454,7 +455,8 @@ export default function Page() {
         setActiveProfileId(first.id);
         try { if (typeof window !== "undefined") window.localStorage.setItem("activeProfileId", first.id); } catch {}
       } else if (user && list.length === 0) {
-        // Logged in but no profiles: open add-profile modal
+        // Logged in but no profiles: open account panel and add-profile modal
+        setShowAccountPanel(true);
         setAddProfileOpen(true);
       }
     } catch {
