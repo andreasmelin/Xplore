@@ -443,7 +443,7 @@ export default function Page() {
   const activeProfile = useMemo(() => profiles.find((p) => p.id === activeProfileId) ?? null, [profiles, activeProfileId]);
   const canSend = !!user && !!activeProfile;
 
-  async function reloadProfiles() {
+  async function reloadProfiles(afterLogin = false) {
     try {
       const res = await fetch("/api/profiles");
       const json = await res.json().catch(() => ({}));
@@ -454,7 +454,7 @@ export default function Page() {
         const first = list[0];
         setActiveProfileId(first.id);
         try { if (typeof window !== "undefined") window.localStorage.setItem("activeProfileId", first.id); } catch {}
-      } else if (user && list.length === 0) {
+      } else if ((afterLogin || user) && list.length === 0) {
         // Logged in but no profiles: open account panel and add-profile modal
         setShowAccountPanel(true);
         setAddProfileOpen(true);
@@ -562,7 +562,7 @@ export default function Page() {
     setLoginEmail("");
     setLoginPassword("");
     void refreshQuota();
-    void reloadProfiles();
+    void reloadProfiles(true);
   }
 
   async function onAddProfile(e: FormEvent<HTMLFormElement>) {
