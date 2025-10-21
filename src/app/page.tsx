@@ -616,7 +616,7 @@ export default function Page() {
         if (!ok) setAudioStatus("Kunde inte starta Realtime – försöker fallback…");
       }
       // Get assistant reply (text for UI) and include active profile id for server-side system message
-      const reply = await complete(finalPrompt, { body: { profileId: activeProfile?.id ?? activeProfileId ?? null } as unknown });
+      const reply = await complete(finalPrompt, { body: { profileId: activeProfile?.id ?? activeProfileId ?? null } as Record<string, unknown> });
       const assistantText = reply ?? "";
 
       // Prepare sentence list and assistant message shell
