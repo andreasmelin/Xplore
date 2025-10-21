@@ -130,6 +130,16 @@ body::before {
   body::before { animation: none; opacity: 0.06; }
 }
 
+/* iOS Safari: avoid background flicker/jank when content height changes */
+@supports (-webkit-touch-callout: none) {
+  body { background-attachment: scroll; }
+  body::before, body::after {
+    background-attachment: scroll;
+    animation: none;
+    opacity: 0.08;
+  }
+}
+
 /* Thinking animation: soft pulsing dots */
 .thinking-dots {
   display: inline-flex;

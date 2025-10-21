@@ -50,6 +50,7 @@ export default function Page() {
   const [showMagic, setShowMagic] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
+  const [didAttachTapUnlock, setDidAttachTapUnlock] = useState(false);
   const recordTimerRef = useRef<number | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
@@ -316,6 +317,16 @@ export default function Page() {
       setTimeout(() => setAudioStatus(null), 1500);
     } catch {}
   }
+
+  // iOS: On first user tap anywhere, try to unlock audio once automatically
+  useEffect(() => {
+    if (didAttachTapUnlock) return;
+    if (typeof window === 'undefined') return;
+    const handler = () => { try { forceUnmute(); setNeedsAudioUnlock(false); } catch {} };
+    window.addEventListener('touchend', handler, { once: true, passive: true });
+    setDidAttachTapUnlock(true);
+    return () => { try { window.removeEventListener('touchend', handler as any); } catch {} };
+  }, [didAttachTapUnlock]);
 
   // Browser TTS (Web Speech API) – no account needed
   async function speakWithBrowserTts(sentences: string[], tokenAtStart: number): Promise<void> {
