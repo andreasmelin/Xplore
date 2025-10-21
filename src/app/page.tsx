@@ -51,6 +51,7 @@ export default function Page() {
   const [isRecording, setIsRecording] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [didAttachTapUnlock, setDidAttachTapUnlock] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
@@ -301,16 +302,39 @@ export default function Page() {
 
   function forceUnmute() {
     try {
+      // Ensure a Web Audio context is resumed (iOS policy)
+      if (typeof window !== 'undefined') {
+        if (!audioCtxRef.current) {
+          try { audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)(); } catch {}
+        }
+        const ctx = audioCtxRef.current;
+        if (ctx && ctx.state !== 'running') {
+          void ctx.resume().catch(() => {});
+        }
+        // Play a 1-frame silent oscillator to fully unlock audio pipeline
+        if (ctx) {
+          try {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            gain.gain.value = 0.00001;
+            osc.connect(gain).connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.02);
+          } catch {}
+        }
+      }
       const audioEl = audioRef.current;
       if (audioEl) {
         audioEl.muted = false;
         audioEl.volume = 1;
+        (audioEl as any).playsInline = true;
         void audioEl.play().catch(() => {});
       }
       const sentenceEl = sentenceAudioRef.current;
       if (sentenceEl) {
         sentenceEl.muted = false;
         sentenceEl.volume = 1;
+        (sentenceEl as any).playsInline = true;
         void sentenceEl.play().catch(() => {});
       }
       setAudioStatus("Upplåst ljud");
@@ -323,9 +347,22 @@ export default function Page() {
     if (didAttachTapUnlock) return;
     if (typeof window === 'undefined') return;
     const handler = () => { try { forceUnmute(); setNeedsAudioUnlock(false); } catch {} };
-    window.addEventListener('touchend', handler, { once: true, passive: true });
+    const opts: AddEventListenerOptions = { once: true, passive: true };
+    window.addEventListener('pointerdown', handler as EventListener, opts);
+    window.addEventListener('touchstart', handler as EventListener, opts);
+    window.addEventListener('touchend', handler as EventListener, opts);
+    window.addEventListener('click', handler as EventListener, opts);
+    window.addEventListener('keydown', handler as EventListener, opts);
     setDidAttachTapUnlock(true);
-    return () => { try { window.removeEventListener('touchend', handler as EventListener); } catch {} };
+    return () => {
+      try {
+        window.removeEventListener('pointerdown', handler as EventListener);
+        window.removeEventListener('touchstart', handler as EventListener);
+        window.removeEventListener('touchend', handler as EventListener);
+        window.removeEventListener('click', handler as EventListener);
+        window.removeEventListener('keydown', handler as EventListener);
+      } catch {}
+    };
   }, [didAttachTapUnlock]);
 
   // Browser TTS (Web Speech API) – no account needed
