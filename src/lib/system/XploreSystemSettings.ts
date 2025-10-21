@@ -9,18 +9,18 @@ export type XploreSettings = {
 
 export function getXploreSettings(): XploreSettings {
   const model = process.env.XPLORE_MODEL || "gpt-4o-mini";
-  const temperature = clampNum(parseFloat(process.env.XPLORE_TEMPERATURE || "0.5"), 0, 2, 0.5);
+  const temperature = clampNum(parseFloat(process.env.XPLORE_TEMPERATURE || "0.7"), 0, 2, 0.7);
   const maxTokens = Math.max(1, parseInt(process.env.XPLORE_MAX_TOKENS || "220", 10));
-  const topP = parseFloat(process.env.XPLORE_TOP_P || "");
-  const presencePenalty = parseFloat(process.env.XPLORE_PRESENCE_PENALTY || "");
-  const frequencyPenalty = parseFloat(process.env.XPLORE_FREQUENCY_PENALTY || "");
+  const topP = parseFloat(process.env.XPLORE_TOP_P || "0.85");
+  const presencePenalty = parseFloat(process.env.XPLORE_PRESENCE_PENALTY || "0.7");
+  const frequencyPenalty = parseFloat(process.env.XPLORE_FREQUENCY_PENALTY || "0.7");
   return {
     model,
     temperature,
     maxTokens,
     topP: Number.isFinite(topP) ? topP : undefined,
-    presencePenalty: Number.isFinite(presencePenalty) ? presencePenalty : 0.3,
-    frequencyPenalty: Number.isFinite(frequencyPenalty) ? frequencyPenalty : 0.3,
+    presencePenalty: Number.isFinite(presencePenalty) ? presencePenalty : 0.7,
+    frequencyPenalty: Number.isFinite(frequencyPenalty) ? frequencyPenalty : 0.7,
   };
 }
 
