@@ -1073,19 +1073,19 @@ export default function Page() {
 
     {loginOpen ? (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-          <div className="text-lg font-semibold mb-2">Logga in</div>
-          <p className="text-xs text-gray-600 mb-3">Ange din e‑post för att skapa/logga in på ditt konto.</p>
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl text-gray-800">
+          <div className="text-lg font-semibold mb-2 text-gray-900">Logga in</div>
+          <p className="text-xs text-gray-700 mb-3">Ange din e‑post för att skapa/logga in på ditt konto.</p>
           <form onSubmit={onLoginSubmit} className="space-y-3">
             <input
               autoFocus
-              className="w-full rounded-xl border border-gray-300 px-3 py-2"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-gray-900 placeholder:text-gray-500"
               placeholder="din@epost.se"
               value={loginEmail}
               onChange={(e) => setLoginEmail(e.target.value)}
             />
             <input
-              className="w-full rounded-xl border border-gray-300 px-3 py-2"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-gray-900 placeholder:text-gray-500"
               type="password"
               placeholder="Lösenord"
               value={loginPassword}
