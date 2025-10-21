@@ -49,6 +49,7 @@ export default function Page() {
   const [showOlder, setShowOlder] = useState(false);
   const [showMagic, setShowMagic] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const recordTimerRef = useRef<number | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
@@ -219,8 +220,8 @@ export default function Page() {
           audio.onplay = () => {
             if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; }
           };
-          void audio.play();
-        } catch {}
+          void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck ‘Aktivera ljud’"); });
+        } catch { setNeedsAudioUnlock(true); }
       };
       audio.onended = () => { setAudioStatus(null); };
       // Ensure we are set to receive audio
@@ -400,7 +401,7 @@ export default function Page() {
       audio.onplay = () => {
         if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; }
       };
-      void audio.play().catch(() => { URL.revokeObjectURL(url); resolve(); });
+      void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck ‘Aktivera ljud’"); URL.revokeObjectURL(url); resolve(); });
     });
   }
 
@@ -685,7 +686,7 @@ export default function Page() {
                   audio.onended = () => { resolve(); };
                   audio.onerror = () => { resolve(); };
                   audio.onplay = () => { if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; } };
-                  void audio.play().catch(() => resolve());
+                  void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck ‘Aktivera ljud’"); resolve(); });
                 });
                 if (playbackTokenRef.current === tokenAtStart) setAudioStatus(null);
               } catch {
@@ -935,6 +936,18 @@ export default function Page() {
           {audioStatus ? (
             <div className="text-[11px] text-indigo-100 bg-black/30 border border-white/10 rounded-full inline-block px-3 py-1 shadow">
               {audioStatus}
+            </div>
+          ) : null}
+          {needsAudioUnlock ? (
+            <div className="inline-flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { forceUnmute(); setNeedsAudioUnlock(false); }}
+                className="text-xs rounded-full px-3 py-1 bg-white/90 hover:bg-white text-gray-700 shadow border border-gray-200"
+              >
+                Aktivera ljud
+              </button>
+              <span className="text-[11px] text-indigo-100/80">iOS kräver ett tryck för att spela upp ljud</span>
             </div>
           ) : null}
           {showMagic ? (
