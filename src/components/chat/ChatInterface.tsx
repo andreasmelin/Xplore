@@ -22,8 +22,10 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [ttsOn, setTtsOn] = useState(true);
-  const [ttsProvider, setTtsProvider] = useState<"openai-realtime" | "openai-rest" | "elevenlabs" | "elevenlabs-stream" | "browser">(() => {
-    if (typeof window !== "undefined") return (window.localStorage.getItem("ttsProvider") as typeof ttsProvider | null) || "elevenlabs-stream";
+  
+  type TTSProvider = "openai-realtime" | "openai-rest" | "elevenlabs" | "elevenlabs-stream" | "browser";
+  const [ttsProvider, setTtsProvider] = useState<TTSProvider>(() => {
+    if (typeof window !== "undefined") return (window.localStorage.getItem("ttsProvider") as TTSProvider | null) || "elevenlabs-stream";
     return "elevenlabs-stream";
   });
   const [speakAsap, setSpeakAsap] = useState<boolean>(() => {
