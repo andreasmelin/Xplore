@@ -79,6 +79,8 @@ export async function POST(req: Request) {
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey) return Response.json({ error: "Missing ELEVENLABS_API_KEY" }, { status: 500 });
 
+    // TypeScript now knows apiKey is defined
+    const validApiKey: string = apiKey;
     const defaultVoiceId = process.env.ELEVENLABS_DEFAULT_VOICE_ID || "4xkUqaR9MYOJHoaC1Nak";
     const modelId = process.env.ELEVENLABS_MODEL_ID || undefined;
     const endpoint = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(defaultVoiceId)}`;
@@ -87,7 +89,7 @@ export async function POST(req: Request) {
       return fetch(endpoint, {
         method: "POST",
         headers: new Headers({
-          "xi-api-key": apiKey,
+          "xi-api-key": validApiKey,
           "Content-Type": "application/json",
           "Accept": "audio/mpeg",
         }),

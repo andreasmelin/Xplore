@@ -127,7 +127,7 @@ export async function storeCachedContent(
 
   try {
     // Upload to Supabase Storage
-    const { data: _uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(storagePath, fileBlob, {
         contentType: options.mimeType || (type === "audio" ? "audio/mpeg" : "image/png"),
