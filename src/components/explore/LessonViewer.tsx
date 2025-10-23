@@ -401,7 +401,8 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
       if (res.ok) {
         const data = await res.json() as { imageUrl?: string; cached?: boolean };
         if (data.imageUrl) {
-          setGeneratedImages((prev) => new Map(prev).set(index, data.imageUrl));
+          const imageUrl = data.imageUrl; // Assign to variable for type narrowing
+          setGeneratedImages((prev) => new Map(prev).set(index, imageUrl));
           if (data.cached) {
             console.log(`[Image] Used cached image for index ${index}`);
           }
