@@ -196,15 +196,26 @@ export default function LetterTracing({
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
 
-    // Check if starting near the start point of current stroke
+    // Check if starting near the current progress point of current stroke
     if (currentStroke < strokes.length) {
-      const startPoint = strokes[currentStroke].points[0];
-      const distance = Math.sqrt(
-        Math.pow(x - startPoint.x, 2) + Math.pow(y - startPoint.y, 2)
-      );
+      const stroke = strokes[currentStroke];
+      const currentProgress = strokeProgress[currentStroke];
+      const currentPointIndex = Math.floor(stroke.points.length * currentProgress);
+      
+      // Check points near current progress (for resuming) or start point (for new stroke)
+      const checkPoints = currentProgress === 0 
+        ? [stroke.points[0]]  // Only check start for new strokes
+        : stroke.points.slice(currentPointIndex, Math.min(currentPointIndex + 15, stroke.points.length)); // Check ahead for resume
+      
+      for (const point of checkPoints) {
+        const distance = Math.sqrt(
+          Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2)
+        );
 
-      if (distance < 50) {
-        setIsDrawing(true);
+        if (distance < 80) {  // Generous tolerance for pickup
+          setIsDrawing(true);
+          break;
+        }
       }
     }
   };
@@ -226,41 +237,51 @@ export default function LetterTracing({
 
     const stroke = strokes[currentStroke];
     const currentProgress = strokeProgress[currentStroke];
-    const nextPointIndex = Math.floor(stroke.points.length * currentProgress);
+    const currentPointIndex = Math.floor(stroke.points.length * currentProgress);
 
-    if (nextPointIndex < stroke.points.length) {
-      const targetPoint = stroke.points[nextPointIndex];
+    // Look ahead up to 10 points to find a match (helps if user missed a spot)
+    let bestMatchIndex = -1;
+    let bestMatchDistance = Infinity;
+    const lookAheadCount = 10;
+    
+    for (let i = 0; i < lookAheadCount && currentPointIndex + i < stroke.points.length; i++) {
+      const checkPoint = stroke.points[currentPointIndex + i];
       const distance = Math.sqrt(
-        Math.pow(x - targetPoint.x, 2) + Math.pow(y - targetPoint.y, 2)
+        Math.pow(x - checkPoint.x, 2) + Math.pow(y - checkPoint.y, 2)
       );
+      
+      if (distance < 150 && distance < bestMatchDistance) {
+        bestMatchDistance = distance;
+        bestMatchIndex = currentPointIndex + i;
+      }
+    }
 
-      // If close enough to the next point, advance progress - EXTREMELY GENEROUS tolerance
-      if (distance < 150) {
-        const newProgress = Math.min((nextPointIndex + 1) / stroke.points.length, 1);
-        const newStrokeProgress = [...strokeProgress];
-        newStrokeProgress[currentStroke] = newProgress;
-        setStrokeProgress(newStrokeProgress);
+    // If we found a matching point ahead, jump to it
+    if (bestMatchIndex >= 0) {
+      const newProgress = Math.min((bestMatchIndex + 1) / stroke.points.length, 1);
+      const newStrokeProgress = [...strokeProgress];
+      newStrokeProgress[currentStroke] = newProgress;
+      setStrokeProgress(newStrokeProgress);
 
-        // Check if stroke is complete
-        if (newProgress >= 1) {
-          if (currentStroke === strokes.length - 1) {
-            // All strokes complete!
-            setIsComplete(true);
-            setShowCelebration(true);
-            setIsDrawing(false);
-            
-            // Play celebration sound
-            playCelebrationSound();
-            
-            // Hide celebration after 3 seconds
-            setTimeout(() => {
-              setShowCelebration(false);
-            }, 3000);
-          } else {
-            // Move to next stroke
-            setCurrentStroke(currentStroke + 1);
-            setIsDrawing(false);
-          }
+      // Check if stroke is complete
+      if (newProgress >= 1) {
+        if (currentStroke === strokes.length - 1) {
+          // All strokes complete!
+          setIsComplete(true);
+          setShowCelebration(true);
+          setIsDrawing(false);
+          
+          // Play celebration sound
+          playCelebrationSound();
+          
+          // Hide celebration after 3 seconds
+          setTimeout(() => {
+            setShowCelebration(false);
+          }, 3000);
+        } else {
+          // Move to next stroke
+          setCurrentStroke(currentStroke + 1);
+          setIsDrawing(false);
         }
       }
     }
@@ -420,11 +441,20 @@ export default function LetterTracing({
         {/* Instructions */}
         <div className="mt-6 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-3 text-white">
           {!isComplete && currentStroke < strokes.length && (
-            <p className="text-lg font-semibold text-center">
-              {strokeProgress[currentStroke] === 0
-                ? "Klicka på den gröna punkten och dra fingret längs bokstaven! 🌈"
-                : "Fortsätt rita längs bokstaven!"}
-            </p>
+            <div className="flex flex-col gap-2">
+              <p className="text-lg font-semibold text-center">
+                {strokeProgress[currentStroke] === 0
+                  ? "Klicka på den gröna punkten och dra fingret längs bokstaven! 🌈"
+                  : "Fortsätt rita längs bokstaven! Pilen visar vägen 👉"}
+              </p>
+              {strokeProgress[currentStroke] > 0 && strokeProgress[currentStroke] < 1 && (
+                <p className="text-sm text-center text-white/80">
+                  {isDrawing 
+                    ? "Håll kvar fingret och följ pilen!"
+                    : "Klicka var som helst på den vita pilen för att fortsätta"}
+                </p>
+              )}
+            </div>
           )}
           {isComplete && (
             <p className="text-lg font-semibold text-center">
