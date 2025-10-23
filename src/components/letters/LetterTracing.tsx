@@ -29,7 +29,7 @@ export default function LetterTracing({
   const [isSoundEnabled, setIsSoundEnabled] = useState(initialSoundEnabled);
   const [volume, setVolume] = useState(initialVolume);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
 
   const strokes = getLetterStrokes(letter);
   
