@@ -1,0 +1,172 @@
+═══════════════════════════════════════════════════════════════
+  SUPABASE CACHE SETUP - INTERACTIVE CHECKLIST
+═══════════════════════════════════════════════════════════════
+
+Follow these steps in order. Check each box as you complete it!
+
+STEP 1: STORAGE BUCKETS
+═══════════════════════════════════════════════════════════════
+
+□ 1. Go to https://supabase.com/dashboard
+□ 2. Open your project
+□ 3. Click "Storage" in left sidebar
+□ 4. Click "New bucket" button
+
+   BUCKET 1: lesson-audio
+   ─────────────────────────────────────────────────────────────
+   □ Name: lesson-audio
+   □ Public bucket: ✓ CHECKED (Important!)
+   □ File size limit: 10000000 (optional)
+   □ Click "Create bucket"
+
+   BUCKET 2: lesson-images
+   ─────────────────────────────────────────────────────────────
+   □ Name: lesson-images
+   □ Public bucket: ✓ CHECKED (Important!)
+   □ File size limit: 5000000 (optional)
+   □ Click "Create bucket"
+
+□ 5. Verify: You should see 2 buckets in the Storage page
+
+
+STEP 2: DATABASE TABLE
+═══════════════════════════════════════════════════════════════
+
+□ 1. Click "SQL Editor" in left sidebar
+□ 2. Click "New query" button
+□ 3. Open the file: db/migrations/003_content_cache.sql
+□ 4. Copy ALL the SQL code from that file
+□ 5. Paste it into the SQL Editor
+□ 6. Click "Run" (or press Ctrl+Enter)
+□ 7. Verify: "Success. No rows returned"
+
+
+STEP 3: STORAGE POLICIES (RLS)
+═══════════════════════════════════════════════════════════════
+
+□ 1. Still in SQL Editor, click "New query"
+□ 2. Copy and paste this code:
+
+─────────────────────────────────────────────────────────────────
+CREATE POLICY "Public read lesson-audio"
+ON storage.objects FOR SELECT TO public
+USING (bucket_id = 'lesson-audio');
+
+CREATE POLICY "Authenticated insert lesson-audio"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'lesson-audio');
+
+CREATE POLICY "Public read lesson-images"
+ON storage.objects FOR SELECT TO public
+USING (bucket_id = 'lesson-images');
+
+CREATE POLICY "Authenticated insert lesson-images"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'lesson-images');
+─────────────────────────────────────────────────────────────────
+
+□ 3. Click "Run"
+□ 4. Verify: "Success. No rows returned"
+
+
+STEP 4: VERIFY SETUP
+═══════════════════════════════════════════════════════════════
+
+Run these queries in SQL Editor to verify:
+
+□ Query 1: Check buckets exist
+─────────────────────────────────────────────────────────────────
+SELECT * FROM storage.buckets 
+WHERE name IN ('lesson-audio', 'lesson-images');
+─────────────────────────────────────────────────────────────────
+Expected: 2 rows
+
+□ Query 2: Check table exists
+─────────────────────────────────────────────────────────────────
+SELECT * FROM content_cache LIMIT 1;
+─────────────────────────────────────────────────────────────────
+Expected: "Success. No rows returned"
+
+□ Query 3: Check policies
+─────────────────────────────────────────────────────────────────
+SELECT * FROM storage.policies 
+WHERE bucket_id IN ('lesson-audio', 'lesson-images');
+─────────────────────────────────────────────────────────────────
+Expected: 4 rows
+
+
+STEP 5: ENVIRONMENT VARIABLES
+═══════════════════════════════════════════════════════════════
+
+□ 1. Check that .env.local has these variables:
+     NEXT_PUBLIC_SUPABASE_URL=https://...
+     NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+     SUPABASE_SERVICE_ROLE_KEY=...
+
+□ 2. If missing, get them from:
+     Supabase Dashboard → Settings → API
+
+
+STEP 6: RESTART DEV SERVER
+═══════════════════════════════════════════════════════════════
+
+□ 1. Stop your dev server (Ctrl+C)
+□ 2. Run: npm run dev
+□ 3. Wait for server to start
+
+
+STEP 7: TEST IT WORKS!
+═══════════════════════════════════════════════════════════════
+
+□ 1. Open: http://localhost:3000/explore
+□ 2. Open browser console (F12)
+□ 3. Click on "Solsystemet" topic
+□ 4. Click on "Planeterna i vårt solsystem" lesson
+□ 5. Watch console - should see:
+     [TTS] Cache MISS: Generating new audio
+     [TTS] Cached: audio/solar-system/...
+□ 6. Refresh the page (F5)
+□ 7. Navigate to same section
+□ 8. Console should show:
+     [TTS] Cache HIT: audio/solar-system/... ⚡
+□ 9. Audio should play INSTANTLY!
+
+
+═══════════════════════════════════════════════════════════════
+  🎉 SUCCESS! CACHE IS WORKING!
+═══════════════════════════════════════════════════════════════
+
+Optional: Pre-generate all content
+───────────────────────────────────────────────────────────────
+□ Run: npm run cache:generate
+
+This will cache all audio and images upfront so every user gets
+instant playback from day 1!
+
+Cost: ~$2-3 (one-time)
+Time: ~5-10 minutes
+Benefit: Everything cached forever!
+
+
+═══════════════════════════════════════════════════════════════
+  TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+❌ "Bucket not found"
+   → Make sure buckets are PUBLIC (checkbox during creation)
+   → Check names are exactly: lesson-audio, lesson-images
+
+❌ "Permission denied"
+   → Check SUPABASE_SERVICE_ROLE_KEY in .env.local
+   → Restart dev server
+
+❌ "Table does not exist"
+   → Run the migration script again (Step 2)
+
+❌ Still not working?
+   → Read: SUPABASE_SETUP_STEPS.md for detailed help
+   → Or ask me for help!
+
+
+═══════════════════════════════════════════════════════════════
+

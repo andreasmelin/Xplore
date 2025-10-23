@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cache:generate": "ts-node scripts/pre-generate-lesson-content.ts",
+    "cache:audio": "ts-node scripts/pre-generate-lesson-content.ts --audio-only",
+    "cache:images": "ts-node scripts/pre-generate-lesson-content.ts --images-only"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.44",
