@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
 import AddProfileModal from "@/components/profile/AddProfileModal";
@@ -195,8 +195,7 @@ export default function MathPage() {
 
 function MathIntro({ profileName, onStart }: { profileName: string; onStart: () => void }) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const audioRef = useState<HTMLAudioElement | null>(null)[0];
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Introduction text to be read aloud
   const introText = `Välkommen till Matematik-landet! Hej ${profileName}! Är du redo för ett matematikäventyr? 
@@ -208,8 +207,8 @@ function MathIntro({ profileName, onStart }: { profileName: string; onStart: () 
   Jag ska visa dig hur roligt det kan vara att räkna, jämföra och upptäcka mönster. Är du redo? Låt oss börja vårt äventyr!`;
 
   async function playIntroduction() {
-    if (isPlaying && audioRef) {
-      audioRef.pause();
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause();
       setIsPlaying(false);
       return;
     }
@@ -230,17 +229,13 @@ function MathIntro({ profileName, onStart }: { profileName: string; onStart: () 
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
 
       const audio = new Audio(url);
+      audioRef.current = audio;
       audio.onended = () => setIsPlaying(false);
       audio.onerror = () => setIsPlaying(false);
       
       await audio.play();
-      // Store ref for pause functionality
-      if (!audioRef) {
-        audioRef = audio as any;
-      }
     } catch (error) {
       console.error("Failed to play audio:", error);
       setIsPlaying(false);
@@ -287,16 +282,16 @@ function MathIntro({ profileName, onStart }: { profileName: string; onStart: () 
           <div className="flex-1">
             <div className="bg-white/20 rounded-2xl p-6 border border-white/30">
               <p className="text-xl text-white leading-relaxed mb-4">
-                "Hej! Jag heter <span className="font-bold text-yellow-300">Sinus</span>, och jag älskar siffror och matte! 
-                Visste du att matematik finns överallt omkring oss?"
+                &ldquo;Hej! Jag heter <span className="font-bold text-yellow-300">Sinus</span>, och jag älskar siffror och matte! 
+                Visste du att matematik finns överallt omkring oss?&rdquo;
               </p>
               <p className="text-xl text-white leading-relaxed mb-4">
-                "När du räknar dina leksaker, när du delar godis med dina kompisar, 
-                eller när du bygger torn med klossar - då använder du <span className="font-bold text-yellow-300">matematik</span>! ✨"
+                &ldquo;När du räknar dina leksaker, när du delar godis med dina kompisar, 
+                eller när du bygger torn med klossar - då använder du <span className="font-bold text-yellow-300">matematik</span>! ✨&rdquo;
               </p>
               <p className="text-xl text-white leading-relaxed">
-                "Jag ska visa dig hur roligt det kan vara att räkna, jämföra och upptäcka mönster. 
-                Är du redo? Låt oss börja vårt äventyr!"
+                &ldquo;Jag ska visa dig hur roligt det kan vara att räkna, jämföra och upptäcka mönster. 
+                Är du redo? Låt oss börja vårt äventyr!&rdquo;
               </p>
             </div>
           </div>
