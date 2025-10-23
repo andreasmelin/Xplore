@@ -38,6 +38,7 @@ export default function LessonAIModal({
     if (isOpen && mode === "tell-more" && !response && !isLoading) {
       handleTellMore();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mode]);
 
   // Clean up audio on close

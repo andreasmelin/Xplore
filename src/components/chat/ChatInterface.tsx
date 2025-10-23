@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCompletion } from "@ai-sdk/react";
 
 type Profile = { id: string; name: string; age: number };
@@ -376,7 +376,7 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
     }
   }
 
-  async function fetchWithTimeout(url: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<Response> {
+  async function _fetchWithTimeout(url: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<Response> {
     const { timeoutMs = 15000, ...rest } = init;
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -457,14 +457,14 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
     }
   }
 
-  function armPressToTalk() {
+  function _armPressToTalk() {
     if (recordTimerRef.current) window.clearTimeout(recordTimerRef.current);
     cancelRecordingRef.current = false;
     pointerDownAtRef.current = Date.now();
     recordTimerRef.current = window.setTimeout(() => { void startRecording(); }, 350);
   }
 
-  async function releasePressToTalk() {
+  async function _releasePressToTalk() {
     if (recordTimerRef.current) { window.clearTimeout(recordTimerRef.current); recordTimerRef.current = null; }
     const heldMs = Date.now() - pointerDownAtRef.current;
     if (isRecording) {
@@ -474,7 +474,7 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
     }
   }
 
-  function cancelPressToTalk() {
+  function _cancelPressToTalk() {
     cancelRecordingRef.current = true;
     if (recordTimerRef.current) { window.clearTimeout(recordTimerRef.current); recordTimerRef.current = null; }
     if (isRecording) { void stopAndTranscribe(false); }

@@ -3,8 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { getLetterStrokes } from "./letterData";
 
-type Point = { x: number; y: number };
-
 type LetterTracingProps = {
   letter: string;
   onBack: () => void;
@@ -48,7 +46,8 @@ export default function LetterTracing({
     setCurrentStroke(0);
     setIsComplete(false);
     setShowCelebration(false);
-  }, [letter, strokes.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [letter]);
 
   // Draw the canvas
   const draw = useCallback(() => {

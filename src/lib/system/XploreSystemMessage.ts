@@ -11,10 +11,10 @@ export type SystemMessageOptions = {
 
 export function buildXploreSystemMessage(options: SystemMessageOptions = {}): string {
   const persona = options.personaName?.trim() || "Roboten Sinus";
-  const language = options.language?.trim() || "svenska";
+  const _language = options.language?.trim() || "svenska";
   const childName = options.childName?.trim() || "";
   const interests = options.interests?.trim() || "";
-  const followUpProbability = Number.isFinite(options.followUpProbability as number) ? options.followUpProbability : 0.65;
+  const _followUpProbability = Number.isFinite(options.followUpProbability as number) ? options.followUpProbability : 0.65;
   const recentContext = options.recentContext?.trim();
   const suggested = options.suggestedTopics?.trim();
 
