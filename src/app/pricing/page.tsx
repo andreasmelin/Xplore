@@ -183,10 +183,10 @@ export default function PricingPage() {
                     </div>
 
                     <button
-                      onClick={() => handleSubscribe(plan.id, priceId)}
-                      disabled={loading === plan.id}
+                      onClick={() => priceId && handleSubscribe(plan.id, priceId)}
+                      disabled={loading === plan.id || !priceId}
                       className={`w-full py-4 rounded-xl font-bold text-lg transition-all mb-6 ${
-                        plan.popular
+                        'popular' in plan && plan.popular
                           ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-white hover:shadow-lg hover:shadow-yellow-500/50"
                           : "bg-white text-indigo-600 hover:bg-indigo-50"
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
