@@ -2,13 +2,27 @@
 import Stripe from 'stripe';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing STRIPE_SECRET_KEY environment variable');
+// Lazy-load Stripe client to avoid build-time initialization
+let _stripe: Stripe | null = null;
+
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('Missing STRIPE_SECRET_KEY environment variable');
+    }
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-09-30.clover',
+      typescript: true,
+    });
+  }
+  return _stripe;
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-09-30.clover',
-  typescript: true,
+// For backward compatibility
+export const stripe = new Proxy({} as Stripe, {
+  get: (_target, prop) => {
+    return getStripe()[prop as keyof Stripe];
+  }
 });
 
 // Admin client for database operations
