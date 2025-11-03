@@ -60,6 +60,24 @@ export async function POST(req: Request) {
   const system = buildXploreSystemMessage({ age: profileAge, personaName: "Roboten Sinus", recentContext, suggestedTopics });
   const settings = getXploreSettings();
 
+  // Log chat activity for parent dashboard (async, don't wait)
+  if (profileId) {
+    // Log activity in background (edge runtime compatible)
+    fetch(`${process.env.NEXT_PUBLIC_URL}/api/activity/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        profileId,
+        activityType: 'chat',
+        activityName: 'Pratat med Sinus',
+        durationSeconds: 0,
+        completed: true,
+      }),
+    }).catch(() => {
+      // Ignore errors - activity logging is non-critical
+    });
+  }
+
   const result = await streamText(
     prompt
       ? {

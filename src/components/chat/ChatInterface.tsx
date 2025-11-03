@@ -65,8 +65,27 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
   const displayTokenRef = useRef(0);
   const overlayClearedRef = useRef(false);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const canSend = !!activeProfile;
+
+  // Auto-resize textarea
+  function autoResizeTextarea() {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Set height to scrollHeight with min/max constraints
+    const newHeight = Math.min(Math.max(textarea.scrollHeight, 40), 200); // Min 40px, max 200px
+    textarea.style.height = `${newHeight}px`;
+  }
+
+  // Auto-resize when input changes
+  useEffect(() => {
+    autoResizeTextarea();
+  }, [input]);
 
   async function ensureSession(initialTitle: string): Promise<string> {
     if (sessionId) return sessionId;
@@ -628,13 +647,15 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
             <span className="text-2xl mt-1">💬</span>
             <div className="flex-1">
               <p className="text-purple-200 text-sm font-medium mb-2">Ställ din fråga till Sinus</p>
-              <div className="flex gap-2">
-                <input
+              <div className="flex gap-2 items-end">
+                <textarea
+                  ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={canSend ? "Skriv din fråga här..." : "Välj eller skapa en profil för att börja"}
-                  className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-y-auto min-h-[40px] max-h-[200px]"
                   disabled={!canSend}
+                  rows={1}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();

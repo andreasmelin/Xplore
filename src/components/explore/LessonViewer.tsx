@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Lesson, LessonContent, Topic } from "@/lib/explore/topics-data";
 import Image from "next/image";
 import { useLessonAudio } from "./useLessonAudio";
+import { logExploreLesson } from "@/lib/activity-logger";
 
 type LessonViewerProps = {
   topic: Topic;
@@ -13,10 +14,43 @@ type LessonViewerProps = {
   ttsEnabled: boolean;
   ttsVolume: number;
   profileAge: number | null;
+  profileId?: string | null;
 };
 
-export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEnabled, ttsVolume, profileAge }: LessonViewerProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+// Group heading + text together as one page
+function groupLessonContent(content: LessonContent[]): Array<{ items: LessonContent[]; originalIndices: number[] }> {
+  const groups: Array<{ items: LessonContent[]; originalIndices: number[] }> = [];
+  let i = 0;
+  
+  while (i < content.length) {
+    const current = content[i];
+    
+    // If heading, try to group with next text
+    if (current.type === "heading" && i + 1 < content.length && content[i + 1].type === "text") {
+      groups.push({
+        items: [current, content[i + 1]],
+        originalIndices: [i, i + 1]
+      });
+      i += 2;
+    } else {
+      // Single item group
+      groups.push({
+        items: [current],
+        originalIndices: [i]
+      });
+      i += 1;
+    }
+  }
+  
+  return groups;
+}
+
+export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEnabled, ttsVolume, profileAge, profileId }: LessonViewerProps) {
+  // Group content items (heading + text together)
+  const groupedContent = groupLessonContent(lesson.content);
+  
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
+  const startTimeRef = useRef<number>(Date.now());
   const [revealedAnswers, setRevealedAnswers] = useState<Set<number>>(new Set());
   const [generatedImages, setGeneratedImages] = useState<Map<number, string>>(new Map());
   const [loadingImages, setLoadingImages] = useState<Set<number>>(new Set());
@@ -40,31 +74,36 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
   const questionAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
-  const currentContent = lesson.content[currentIndex];
-  const isFirst = currentIndex === 0;
-  const isLast = currentIndex === lesson.content.length - 1;
+  const currentGroup = groupedContent[currentGroupIndex];
+  const isFirst = currentGroupIndex === 0;
+  const isLast = currentGroupIndex === groupedContent.length - 1;
 
-  const progress = ((currentIndex + 1) / lesson.content.length) * 100;
+  const progress = ((currentGroupIndex + 1) / groupedContent.length) * 100;
 
   // TTS audio hook
   const audio = useLessonAudio(ttsEnabled, ttsVolume);
 
   // Auto-read content when navigating
   useEffect(() => {
-    if (ttsEnabled && currentContent) {
-      let textToRead = "";
+    if (ttsEnabled && currentGroup) {
+      // Combine text from all items in the group
+      const textParts: string[] = [];
       
-      if (currentContent.type === "heading") {
-        textToRead = currentContent.content;
-      } else if (currentContent.type === "text") {
-        textToRead = currentContent.content;
-      } else if (currentContent.type === "fact") {
-        textToRead = "Visste du att... " + currentContent.content;
-      } else if (currentContent.type === "question") {
-        textToRead = currentContent.question;
-      } else if (currentContent.type === "activity") {
-        textToRead = "Aktivitet: " + currentContent.title + ". " + currentContent.description;
+      for (const item of currentGroup.items) {
+        if (item.type === "heading") {
+          textParts.push(item.content);
+        } else if (item.type === "text") {
+          textParts.push(item.content);
+        } else if (item.type === "fact") {
+          textParts.push("Visste du att... " + item.content);
+        } else if (item.type === "question") {
+          textParts.push(item.question);
+        } else if (item.type === "activity") {
+          textParts.push("Aktivitet: " + item.title + ". " + item.description);
+        }
       }
+
+      const textToRead = textParts.join(" ");
 
       if (textToRead) {
         // Small delay to let the UI render
@@ -72,7 +111,7 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
           audio.speak(textToRead, {
             topicId: topic.id,
             lessonId: lesson.id,
-            contentIndex: currentIndex,
+            contentIndex: currentGroup.originalIndices[0], // Use first item's index for caching
           });
         }, 300);
         return () => {
@@ -81,13 +120,20 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, ttsEnabled]);
+  }, [currentGroupIndex, ttsEnabled]);
 
   function handleNext() {
     audio.stop();
     if (!isLast) {
-      setCurrentIndex((prev) => prev + 1);
+      setCurrentGroupIndex((prev) => prev + 1);
     } else {
+      // Log lesson completion
+      if (profileId) {
+        const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+        logExploreLesson(profileId, topic.id, lesson.title, durationSeconds).catch(err => {
+          console.error('Failed to log explore lesson:', err);
+        });
+      }
       onComplete();
     }
   }
@@ -95,7 +141,7 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
   function handlePrevious() {
     audio.stop();
     if (!isFirst) {
-      setCurrentIndex((prev) => prev - 1);
+      setCurrentGroupIndex((prev) => prev - 1);
     }
   }
 
@@ -127,11 +173,12 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
     setLoadingExpansion((prev) => new Set(prev).add(index));
 
     try {
+      const contentItem = lesson.content[index];
       const existingExpansions = expandedContent.get(index) || [];
       const expansionLevel = existingExpansions.length + 1;
       
       // Build context including previous expansions
-      let contextText = getContentText(currentContent);
+      let contextText = getContentText(contentItem);
       if (existingExpansions.length > 0) {
         contextText += "\n\nPrevious expansions:\n" + existingExpansions.join("\n\n");
       }
@@ -145,7 +192,7 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
             topicTitle: topic.title,
             lessonTitle: lesson.title,
             currentContent: contextText,
-            contentType: currentContent.type,
+            contentType: contentItem.type,
             expansionLevel: expansionLevel,
           },
           profileAge,
@@ -163,8 +210,12 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
       });
 
       // Generate and play audio if TTS enabled
+      console.log("[LessonViewer] TTS enabled:", ttsEnabled, "Response length:", data.response?.length);
       if (ttsEnabled && data.response) {
+        console.log("[LessonViewer] Calling generateExpansionAudio...");
         await generateExpansionAudio(data.response);
+      } else {
+        console.log("[LessonViewer] Skipping audio generation - TTS disabled or no response");
       }
     } catch (error) {
       console.error("AI assist error:", error);
@@ -183,6 +234,9 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
 
   async function generateExpansionAudio(text: string) {
     try {
+      console.log("[LessonViewer] Generating expansion audio for:", text.substring(0, 50));
+      console.log("[LessonViewer] Calling /api/tts with provider: elevenlabs");
+      
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -193,16 +247,27 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
         }),
       });
 
+      console.log("[LessonViewer] TTS API response status:", res.status);
+      
       if (res.ok) {
+        console.log("[LessonViewer] Expansion audio generated successfully");
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         setExpansionAudioUrl(url);
         
         // Auto-play
         playExpansionAudio(url);
+      } else {
+        const errorText = await res.text();
+        console.error("[LessonViewer] TTS API error:", res.status, errorText);
+        console.error("[LessonViewer] Full error details:", {
+          status: res.status,
+          statusText: res.statusText,
+          error: errorText
+        });
       }
     } catch (error) {
-      console.error("TTS error:", error);
+      console.error("[LessonViewer] TTS error:", error);
     }
   }
 
@@ -291,6 +356,7 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
     setLoadingQuestion(true);
 
     try {
+      const contentItem = lesson.content[index];
       const res = await fetch("/api/explore/ai-assist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -300,8 +366,8 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
           context: {
             topicTitle: topic.title,
             lessonTitle: lesson.title,
-            currentContent: getContentText(currentContent),
-            contentType: currentContent.type,
+            currentContent: getContentText(contentItem),
+            contentType: contentItem.type,
           },
           profileAge,
         }),
@@ -533,27 +599,9 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
               {content.content}
             </h2>
             {expandedContent.has(index) && expandedContent.get(index)!.map((expansion, expansionIndex) => (
-              <div key={expansionIndex} className="bg-gradient-to-br from-blue-500/20 to-cyan-500/10 border border-blue-500/30 rounded-xl p-5 mb-4 backdrop-blur-sm">
-                <div className="flex items-start gap-3 mb-2">
-                  <span className="text-2xl">🤓</span>
-                  <div className="flex-1">
-                    {expansionIndex > 0 && (
-                      <div className="text-xs text-blue-200 mb-1 font-medium">
-                        Nivå {expansionIndex + 1} - Djupare kunskap
-                      </div>
-                    )}
-                    <p className="text-white/90 leading-relaxed">{expansion}</p>
-                  </div>
-                </div>
-                {isPlayingExpansion && expansionAudioUrl && expansionIndex === expandedContent.get(index)!.length - 1 && (
-                  <button
-                    onClick={stopExpansionAudio}
-                    className="text-xs px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors mt-2"
-                  >
-                    ⏸️ Pausa
-                  </button>
-                )}
-              </div>
+              <p key={expansionIndex} className="text-lg text-indigo-100/90 leading-relaxed mb-4">
+                {expansion}
+              </p>
             ))}
             {renderQuestionUI(index)}
           </div>
@@ -566,27 +614,9 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
               {content.content}
             </p>
             {expandedContent.has(index) && expandedContent.get(index)!.map((expansion, expansionIndex) => (
-              <div key={expansionIndex} className="bg-gradient-to-br from-blue-500/20 to-cyan-500/10 border border-blue-500/30 rounded-xl p-5 mb-4 backdrop-blur-sm">
-                <div className="flex items-start gap-3 mb-2">
-                  <span className="text-2xl">🤓</span>
-                  <div className="flex-1">
-                    {expansionIndex > 0 && (
-                      <div className="text-xs text-blue-200 mb-1 font-medium">
-                        Nivå {expansionIndex + 1} - Djupare kunskap
-                      </div>
-                    )}
-                    <p className="text-white/90 leading-relaxed">{expansion}</p>
-                  </div>
-                </div>
-                {isPlayingExpansion && expansionAudioUrl && expansionIndex === expandedContent.get(index)!.length - 1 && (
-                  <button
-                    onClick={stopExpansionAudio}
-                    className="text-xs px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors mt-2"
-                  >
-                    ⏸️ Pausa
-                  </button>
-                )}
-              </div>
+              <p key={expansionIndex} className="text-lg text-indigo-100/90 leading-relaxed mb-4">
+                {expansion}
+              </p>
             ))}
             {renderQuestionUI(index)}
           </div>
@@ -604,22 +634,11 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
                 </div>
               </div>
             </div>
-            {expandedContent.has(index) && (
-              <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/10 border border-blue-500/30 rounded-xl p-5 mb-4 backdrop-blur-sm">
-                <div className="flex items-start gap-3 mb-2">
-                  <span className="text-2xl">🤓</span>
-                  <p className="text-white/90 leading-relaxed">{expandedContent.get(index)}</p>
-                </div>
-                {isPlayingExpansion && expansionAudioUrl && (
-                  <button
-                    onClick={stopExpansionAudio}
-                    className="text-xs px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors mt-2"
-                  >
-                    ⏸️ Pausa
-                  </button>
-                )}
-              </div>
-            )}
+            {expandedContent.has(index) && expandedContent.get(index)!.map((expansion, expansionIndex) => (
+              <p key={expansionIndex} className="text-lg text-indigo-100/90 leading-relaxed mb-4">
+                {expansion}
+              </p>
+            ))}
             {renderQuestionUI(index)}
           </div>
         );
@@ -737,7 +756,7 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
         </div>
         <div className="flex items-center justify-between mt-1">
           <div className="text-xs text-indigo-100/60">
-            Del {currentIndex + 1} av {lesson.content.length}
+            Del {currentGroupIndex + 1} av {groupedContent.length}
           </div>
           
           {/* Audio Controls */}
@@ -785,19 +804,29 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
 
       {/* Content */}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm shadow-xl min-h-[400px]">
-        {renderContent(currentContent, currentIndex)}
+        {currentGroup.items.map((item, idx) => (
+          <div key={currentGroup.originalIndices[idx]}>
+            {renderContent(item, currentGroup.originalIndices[idx])}
+          </div>
+        ))}
       </div>
 
       {/* AI Interaction Buttons */}
-      {(currentContent.type === "text" || currentContent.type === "heading" || currentContent.type === "fact") && (
-        <div className="mt-6 flex flex-wrap gap-3 justify-center">
-          {!expandedContent.has(currentIndex) ? (
+      {currentGroup.items.some(item => item.type === "text" || item.type === "heading" || item.type === "fact") && (() => {
+        // Find the primary content index to expand (prefer text/fact over heading)
+        const expandableIndex = currentGroup.items.findIndex(item => item.type === "text" || item.type === "fact");
+        const targetIndex = expandableIndex >= 0 
+          ? currentGroup.originalIndices[expandableIndex] 
+          : currentGroup.originalIndices[0];
+        
+        return (
+          <div className="mt-6 flex flex-wrap gap-3 justify-center">
             <button
-              onClick={() => handleTellMore(currentIndex)}
-              disabled={loadingExpansion.has(currentIndex)}
+              onClick={() => handleTellMore(targetIndex)}
+              disabled={loadingExpansion.has(targetIndex)}
               className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-full font-medium transition-all shadow-lg hover:shadow-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loadingExpansion.has(currentIndex) ? (
+              {loadingExpansion.has(targetIndex) ? (
                 <>
                   <span className="animate-spin">🤔</span>
                   <span>Tänker...</span>
@@ -809,28 +838,16 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
                 </>
               )}
             </button>
-          ) : (
             <button
-              onClick={() => setExpandedContent((prev) => {
-                const next = new Map(prev);
-                next.delete(currentIndex);
-                return next;
-              })}
-              className="px-5 py-2.5 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-full font-medium transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+              onClick={() => setShowQuestionInput(showQuestionInput === targetIndex ? null : targetIndex)}
+              className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full font-medium transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
             >
-              <span className="text-xl">✕</span>
-              <span>Dölj</span>
+              <span className="text-xl">❓</span>
+              <span>{showQuestionInput === targetIndex ? "Dölj fråga" : "Ställ en fråga"}</span>
             </button>
-          )}
-          <button
-            onClick={() => setShowQuestionInput(showQuestionInput === currentIndex ? null : currentIndex)}
-            className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full font-medium transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
-          >
-            <span className="text-xl">❓</span>
-            <span>{showQuestionInput === currentIndex ? "Dölj fråga" : "Ställ en fråga"}</span>
-          </button>
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* Navigation */}
       <div className="flex items-center justify-between mt-6">
@@ -843,7 +860,7 @@ export default function LessonViewer({ topic, lesson, onBack, onComplete, ttsEna
         </button>
 
         <div className="text-sm text-indigo-100/60">
-          {currentIndex + 1} / {lesson.content.length}
+          {currentGroupIndex + 1} / {groupedContent.length}
         </div>
 
         <button

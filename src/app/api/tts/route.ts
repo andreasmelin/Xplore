@@ -17,6 +17,9 @@ export async function POST(req: Request) {
 
   if (provider === "elevenlabs") {
     const apiKey = process.env.ELEVENLABS_API_KEY;
+    console.log("[TTS API] ELEVENLABS_API_KEY exists:", !!apiKey);
+    console.log("[TTS API] API key length:", apiKey?.length || 0);
+    console.log("[TTS API] API key first 10 chars:", apiKey?.substring(0, 10) || "N/A");
     if (!apiKey) return Response.json({ error: "Missing ELEVENLABS_API_KEY" }, { status: 500 });
     const xiKey: string = apiKey;
 
@@ -45,12 +48,15 @@ export async function POST(req: Request) {
       });
     }
     let res = await elevenFetchOnce();
+    console.log("[TTS API] ElevenLabs response status:", res.status);
     if (!res.ok && res.status !== 401 && res.status !== 403) {
       await new Promise((r) => setTimeout(r, 1000));
       res = await elevenFetchOnce();
+      console.log("[TTS API] ElevenLabs retry response status:", res.status);
     }
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
+      console.error("[TTS API] ElevenLabs error:", res.status, errText);
       const message =
         res.status === 401 || res.status === 403
           ? "ElevenLabs auth failed: check ELEVENLABS_API_KEY"
@@ -77,10 +83,10 @@ export async function POST(req: Request) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini-tts",
+      model: "tts-1",
       input: text,
       voice,
-      format,
+      response_format: format,
     }),
   });
 

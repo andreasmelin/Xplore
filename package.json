@@ -14,6 +14,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.44",
     "@ai-sdk/react": "^2.0.60",
+    "@stripe/stripe-js": "^8.2.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.74.0",
     "ai": "^5.0.60",
@@ -21,6 +22,7 @@
     "openai": "^6.2.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "stripe": "^19.1.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

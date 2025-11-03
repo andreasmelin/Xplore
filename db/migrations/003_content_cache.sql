@@ -65,3 +65,10 @@ COMMENT ON COLUMN public.content_cache.cache_key IS 'Unique identifier: {type}/{
 COMMENT ON COLUMN public.content_cache.content_hash IS 'MD5 hash of source text/prompt to detect changes';
 
 
+
+
+
+
+
+
+

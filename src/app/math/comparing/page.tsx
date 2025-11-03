@@ -6,6 +6,7 @@ import LoginModal from "@/components/auth/LoginModal";
 import AddProfileModal from "@/components/profile/AddProfileModal";
 import Link from "next/link";
 import { COMPARING_LESSON, ComparisonActivity } from "@/lib/math/comparing-data";
+import { logMathActivity } from "@/lib/activity-logger";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -25,6 +26,7 @@ export default function ComparingPage() {
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const startTimeRef = useRef<number>(Date.now());
   
   // Audio state
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -176,6 +178,19 @@ export default function ComparingPage() {
     } else {
       setCurrentView("celebration");
       playAudio(COMPARING_LESSON.celebration);
+      
+      // Log activity completion
+      if (activeProfileId) {
+        const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+        const score = Math.round((correctAnswers / COMPARING_LESSON.activities.length) * 100);
+        logMathActivity(
+          activeProfileId,
+          'comparing_numbers',
+          'Jämföra antal',
+          score,
+          durationSeconds
+        ).catch(err => console.error('Failed to log math activity:', err));
+      }
     }
   }
 
@@ -536,5 +551,8 @@ function CelebrationView({
     </div>
   );
 }
+
+
+
 
 

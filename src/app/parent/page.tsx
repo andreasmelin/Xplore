@@ -1,15 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
-import AddProfileModal from "@/components/profile/AddProfileModal";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
 type Quota = { remaining: number; limit: number; resetAt: string } | null;
+
+type DashboardData = {
+  profile: Profile;
+  summary: {
+    totalTime: number;
+    totalActivities: number;
+    uniqueLetters: number;
+    uniqueTopics: number;
+    totalMath: number;
+    totalChat: number;
+    averageScore: number | null;
+    daysActive: number;
+    averageTimePerDay: number;
+    currentStreak: number;
+  };
+  dailyStats: Array<{
+    date: string;
+    total_time_seconds: number;
+    activities_completed: number;
+    letters_practiced: string[];
+    topics_explored: string[];
+  }>;
+  recentActivities: Array<{
+    id: string;
+    activity_type: string;
+    activity_name: string;
+    created_at: string;
+    duration_seconds: number;
+    completed: boolean;
+    score: number | null;
+  }>;
+};
 
 export default function ParentDashboard() {
   const router = useRouter();
@@ -18,7 +49,9 @@ export default function ParentDashboard() {
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [quota, setQuota] = useState<Quota>(null);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [addProfileOpen, setAddProfileOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState(7);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function init() {
@@ -33,98 +66,110 @@ export default function ParentDashboard() {
         const me = meJson?.user ?? null;
         setUser(me);
 
+        if (!me) {
+          setLoginOpen(true);
+          setLoading(false);
+          return;
+        }
+
         const profilesJson = await profilesRes.json().catch(() => ({}));
         const list: Profile[] = profilesJson?.profiles ?? [];
         setProfiles(list);
 
         const stored = typeof window !== "undefined" ? window.localStorage.getItem("activeProfileId") : null;
-        if (stored && list.some((p) => p.id === stored)) {
-          setActiveProfileId(stored);
+        const selectedProfile = stored && list.some((p) => p.id === stored) ? stored : list[0]?.id;
+        
+        if (selectedProfile) {
+          setActiveProfileId(selectedProfile);
         }
 
         const limitsJson = await limitsRes.json().catch(() => ({}));
         if (limitsJson?.status) setQuota(limitsJson.status);
-
-        if (!me) setLoginOpen(true);
-      } catch {
-        // ignore
+      } catch (error) {
+        console.error("Init error:", error);
+      } finally {
+        setLoading(false);
       }
     }
     void init();
   }, []);
 
-  async function refreshProfiles() {
-    try {
-      const res = await fetch("/api/profiles");
-      const json = await res.json().catch(() => ({}));
-      const list: Profile[] = json?.profiles ?? [];
-      setProfiles(list);
-    } catch {
-      // ignore
+  useEffect(() => {
+    if (activeProfileId) {
+      loadDashboardData();
     }
-  }
+  }, [activeProfileId, timeRange]);
 
-  async function refreshQuota() {
+  async function loadDashboardData() {
+    if (!activeProfileId) return;
+
+    setLoading(true);
     try {
-      const res = await fetch("/api/limits/daily");
-      if (res.ok) {
-        const json = await res.json().catch(() => ({}));
-        if (json?.status) setQuota(json.status);
+      const response = await fetch(
+        `/api/parent/dashboard?profileId=${activeProfileId}&days=${timeRange}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load dashboard");
       }
-    } catch {
-      // ignore
+
+      const data = await response.json();
+      setDashboardData(data);
+    } catch (error) {
+      console.error("Dashboard load error:", error);
+    } finally {
+      setLoading(false);
     }
   }
 
   function handleLoginSuccess(newUser: User) {
     setUser(newUser);
-    void refreshProfiles();
-    void refreshQuota();
+    setLoginOpen(false);
+    window.location.reload();
   }
 
-  function handleProfileCreated(profile: Profile) {
-    setProfiles((prev) => [...prev, profile]);
+  function formatDuration(seconds: number): string {
+    if (seconds < 60) return `${seconds} sek`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}min`;
   }
 
-  if (!user) {
+  function formatDate(dateStr: string): string {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' });
+  }
+
+  function formatDateTime(dateStr: string): string {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('sv-SE', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  function getActivityIcon(type: string): string {
+    switch (type) {
+      case 'letter': return '✍️';
+      case 'math': return '🔢';
+      case 'explore': return '🔍';
+      case 'chat': return '💬';
+      default: return '📚';
+    }
+  }
+
+  if (loading && !dashboardData) {
     return (
-      <>
-        <div className="min-h-screen flex flex-col">
-          <AppHeader
-            user={user}
-            profiles={profiles}
-            activeProfileId={activeProfileId}
-            quota={quota}
-            onProfileChange={setActiveProfileId}
-            onOpenLogin={() => setLoginOpen(true)}
-            onOpenAddProfile={() => setAddProfileOpen(true)}
-            onOpenParentDashboard={() => {}}
-          />
-          <main className="flex-1 flex items-center justify-center px-4">
-            <div className="text-center max-w-md">
-              <div className="text-6xl mb-4">🔒</div>
-              <h1 className="text-3xl font-bold text-white mb-4">
-                Föräldrakontroll
-              </h1>
-              <p className="text-indigo-100/90 mb-6">
-                Du måste logga in för att komma åt föräldrapanelen.
-              </p>
-              <button
-                type="button"
-                onClick={() => setLoginOpen(true)}
-                className="px-6 py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-semibold transition-colors shadow-lg"
-              >
-                Logga in
-              </button>
-            </div>
-          </main>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce">📊</div>
+          <p className="text-xl text-white">Laddar statistik...</p>
         </div>
-        <LoginModal
-          isOpen={loginOpen}
-          onClose={() => setLoginOpen(false)}
-          onSuccess={handleLoginSuccess}
-        />
-      </>
+      </div>
     );
   }
 
@@ -138,12 +183,12 @@ export default function ParentDashboard() {
           quota={quota}
           onProfileChange={setActiveProfileId}
           onOpenLogin={() => setLoginOpen(true)}
-          onOpenAddProfile={() => setAddProfileOpen(true)}
+          onOpenAddProfile={() => {}}
           onOpenParentDashboard={() => {}}
         />
 
         <main className="flex-1 px-4 py-8">
-          <div className="mx-auto max-w-6xl">
+          <div className="max-w-7xl mx-auto">
             {/* Header */}
             <div className="mb-8">
               <Link
@@ -151,148 +196,257 @@ export default function ParentDashboard() {
                 className="inline-flex items-center gap-2 text-indigo-100/80 hover:text-indigo-100 mb-4 transition-colors"
               >
                 <span>←</span>
-                <span className="text-sm">Tillbaka till startsidan</span>
+                <span>Tillbaka till startsidan</span>
               </Link>
-              <h1 className="text-4xl font-bold text-white mb-2">
-                Föräldrakontroll 👨‍👩‍👧
-              </h1>
-              <p className="text-indigo-100/80">
-                Hantera profiler, sätt gränser och se hur ditt barn lär sig
-              </p>
-            </div>
 
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white/10 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
-                <div className="text-3xl mb-2">👥</div>
-                <div className="text-2xl font-bold text-white mb-1">
-                  {profiles.length}
-                </div>
-                <div className="text-sm text-indigo-100/80">Barnprofiler</div>
-              </div>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <h1 className="text-4xl font-bold text-white">
+                  📊 Framstegsrapport
+                </h1>
 
-              <div className="bg-white/10 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
-                <div className="text-3xl mb-2">💬</div>
-                <div className="text-2xl font-bold text-white mb-1">
-                  {quota ? quota.limit - quota.remaining : 0}
-                </div>
-                <div className="text-sm text-indigo-100/80">Meddelanden idag</div>
-              </div>
-
-              <div className="bg-white/10 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
-                <div className="text-3xl mb-2">⏰</div>
-                <div className="text-2xl font-bold text-white mb-1">
-                  {quota?.remaining ?? 0}
-                </div>
-                <div className="text-sm text-indigo-100/80">Kvar idag (av {quota?.limit ?? 50})</div>
-              </div>
-            </div>
-
-            {/* Profiles Section */}
-            <div className="bg-white/10 border border-white/10 rounded-2xl p-6 backdrop-blur-sm mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold text-white">Barnprofiler</h2>
-                <button
-                  type="button"
-                  onClick={() => setAddProfileOpen(true)}
-                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full font-semibold transition-colors shadow text-sm"
-                >
-                  + Lägg till profil
-                </button>
-              </div>
-
-              {profiles.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-5xl mb-4">👶</div>
-                  <p className="text-indigo-100/80 mb-4">
-                    Inga profiler ännu. Skapa en för att börja!
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setAddProfileOpen(true)}
-                    className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full font-semibold transition-colors shadow"
-                  >
-                    Skapa första profilen
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {profiles.map((profile) => (
-                    <div
-                      key={profile.id}
-                      className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors"
+                {/* Time range selector */}
+                <div className="flex gap-2">
+                  {[7, 14, 30].map((days) => (
+                    <button
+                      key={days}
+                      onClick={() => setTimeRange(days)}
+                      className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                        timeRange === days
+                          ? "bg-white text-indigo-600 shadow-lg"
+                          : "bg-white/10 text-white hover:bg-white/20"
+                      }`}
                     >
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="h-12 w-12 rounded-full bg-cyan-600 text-white flex items-center justify-center text-2xl">
-                          🧒
-                        </div>
-                        <div>
-                          <div className="font-semibold text-white">{profile.name}</div>
-                          <div className="text-sm text-indigo-100/70">{profile.age} år</div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveProfileId(profile.id);
-                            if (typeof window !== "undefined") {
-                              window.localStorage.setItem("activeProfileId", profile.id);
-                            }
-                          }}
-                          className="flex-1 text-xs px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
-                        >
-                          Välj profil
-                        </button>
-                      </div>
-                    </div>
+                      {days} dagar
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
-
-            {/* Settings Section */}
-            <div className="bg-white/10 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
-              <h2 className="text-2xl font-semibold text-white mb-6">Inställningar</h2>
-              
-              <div className="space-y-6">
-                <div>
-                  <label className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-white mb-1">Dalig gräns för meddelanden</div>
-                      <div className="text-sm text-indigo-100/70">
-                        Nuvarande: {quota?.limit ?? 50} meddelanden per dag
-                      </div>
-                    </div>
-                    <div className="text-indigo-100/50 text-sm">(Kommer snart)</div>
-                  </label>
-                </div>
-
-                <div className="border-t border-white/10 pt-6">
-                  <label className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-white mb-1">Innehållsfilter</div>
-                      <div className="text-sm text-indigo-100/70">
-                        Blockera olämpligt innehåll automatiskt
-                      </div>
-                    </div>
-                    <div className="text-green-400 font-semibold">Aktiverat</div>
-                  </label>
-                </div>
-
-                <div className="border-t border-white/10 pt-6">
-                  <label className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-white mb-1">Aktivitetsrapporter</div>
-                      <div className="text-sm text-indigo-100/70">
-                        Få veckosammanfattning via e-post
-                      </div>
-                    </div>
-                    <div className="text-indigo-100/50 text-sm">(Kommer snart)</div>
-                  </label>
-                </div>
               </div>
             </div>
+
+            {/* Profile selector */}
+            {profiles.length === 0 ? (
+              <div className="mb-8 bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 text-center">
+                <div className="text-6xl mb-4">👶</div>
+                <h2 className="text-2xl font-bold text-white mb-2">Ingen barnprofil ännu</h2>
+                <p className="text-white/80 mb-6">
+                  Skapa en profil för ditt barn för att börja följa deras framsteg
+                </p>
+                <button
+                  onClick={() => router.push('/')}
+                  className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
+                >
+                  Gå till startsidan och skapa profil
+                </button>
+              </div>
+            ) : (
+              <div className="mb-8">
+                <label className="block text-white/80 text-sm font-medium mb-2">
+                  Välj barnprofil:
+                </label>
+                <div className="flex gap-3 flex-wrap">
+                  {profiles.map((profile) => (
+                    <button
+                      key={profile.id}
+                      onClick={() => setActiveProfileId(profile.id)}
+                      className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                        activeProfileId === profile.id
+                          ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg"
+                          : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
+                      }`}
+                    >
+                      {profile.name} ({profile.age} år)
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {dashboardData ? (
+              <>
+                {/* Summary cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                    <div className="text-4xl mb-2">⏱️</div>
+                    <div className="text-3xl font-bold text-white mb-1">
+                      {formatDuration(dashboardData.summary.totalTime)}
+                    </div>
+                    <div className="text-sm text-indigo-100/70">Total tid</div>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                    <div className="text-4xl mb-2">✅</div>
+                    <div className="text-3xl font-bold text-white mb-1">
+                      {dashboardData.summary.totalActivities}
+                    </div>
+                    <div className="text-sm text-indigo-100/70">Aktiviteter</div>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                    <div className="text-4xl mb-2">🔥</div>
+                    <div className="text-3xl font-bold text-white mb-1">
+                      {dashboardData.summary.currentStreak}
+                    </div>
+                    <div className="text-sm text-indigo-100/70">Dagars streak</div>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                    <div className="text-4xl mb-2">📈</div>
+                    <div className="text-3xl font-bold text-white mb-1">
+                      {dashboardData.summary.daysActive}/{timeRange}
+                    </div>
+                    <div className="text-sm text-indigo-100/70">Aktiva dagar</div>
+                  </div>
+                </div>
+
+                {/* Skills progress */}
+                <div className="grid md:grid-cols-3 gap-6 mb-8">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">✍️</span>
+                        <div>
+                          <div className="font-bold text-white">Bokstäver</div>
+                          <div className="text-sm text-indigo-100/70">
+                            {dashboardData.summary.uniqueLetters}/29 tränade
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-pink-500 to-red-500 h-full rounded-full transition-all"
+                        style={{ width: `${(dashboardData.summary.uniqueLetters / 29) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">🔢</span>
+                        <div>
+                          <div className="font-bold text-white">Matematik</div>
+                          <div className="text-sm text-indigo-100/70">
+                            {dashboardData.summary.totalMath} aktiviteter
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {dashboardData.summary.averageScore && (
+                      <div className="text-2xl font-bold text-white">
+                        {Math.round(dashboardData.summary.averageScore)}% rätt
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">🔍</span>
+                        <div>
+                          <div className="font-bold text-white">Utforskande</div>
+                          <div className="text-sm text-indigo-100/70">
+                            {dashboardData.summary.uniqueTopics} ämnen
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-white">
+                      {dashboardData.summary.totalChat} meddelanden till Sinus
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity chart */}
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 mb-8">
+                  <h3 className="text-xl font-bold text-white mb-6">Aktivitet över tid</h3>
+                  
+                  <div className="h-48 flex items-end justify-between gap-2">
+                    {dashboardData.dailyStats.map((day, i) => {
+                      const maxTime = Math.max(...dashboardData.dailyStats.map(d => d.total_time_seconds));
+                      const height = maxTime > 0 ? (day.total_time_seconds / maxTime) * 100 : 0;
+                      
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                          <div
+                            className="w-full bg-gradient-to-t from-cyan-500 to-blue-600 rounded-t-lg transition-all hover:from-cyan-400 hover:to-blue-500 cursor-pointer relative group"
+                            style={{ height: `${Math.max(height, 2)}%` }}
+                          >
+                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                              {formatDuration(day.total_time_seconds)}
+                              <br />
+                              {day.activities_completed} aktiviteter
+                            </div>
+                          </div>
+                          <div className="text-xs text-indigo-100/70">
+                            {formatDate(day.date)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Recent activities */}
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                  <h3 className="text-xl font-bold text-white mb-6">Senaste aktiviteter</h3>
+                  
+                  <div className="space-y-3">
+                    {dashboardData.recentActivities.length > 0 ? (
+                      dashboardData.recentActivities.slice(0, 10).map((activity) => (
+                        <div
+                          key={activity.id}
+                          className="flex items-center justify-between p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                        >
+                          <div className="flex items-center gap-4">
+                            <span className="text-3xl">{getActivityIcon(activity.activity_type)}</span>
+                            <div>
+                              <div className="font-medium text-white">
+                                {activity.activity_name || 'Aktivitet'}
+                              </div>
+                              <div className="text-sm text-indigo-100/60">
+                                {formatDateTime(activity.created_at)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {activity.duration_seconds > 0 && (
+                              <div className="text-sm text-indigo-100/70">
+                                {formatDuration(activity.duration_seconds)}
+                              </div>
+                            )}
+                            {activity.completed && (
+                              <span className="text-green-400 text-sm">✓ Klar</span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12 text-indigo-100/60">
+                        <div className="text-6xl mb-4">📚</div>
+                        <p>Inga aktiviteter ännu. Börja lära!</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : profiles.length > 0 && activeProfileId ? (
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-12 border border-white/20 text-center">
+                <div className="text-6xl mb-4">🎯</div>
+                <h2 className="text-2xl font-bold text-white mb-2">Inga aktiviteter ännu</h2>
+                <p className="text-white/80 mb-6">
+                  {profiles.find(p => p.id === activeProfileId)?.name} har inte gjort några aktiviteter än.
+                  <br />
+                  Låt barnet börja med att öva på bokstäver, matematik eller utforska nya ämnen!
+                </p>
+                <button
+                  onClick={() => router.push('/')}
+                  className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
+                >
+                  Börja lära
+                </button>
+              </div>
+            ) : null}
           </div>
         </main>
       </div>
@@ -302,14 +456,6 @@ export default function ParentDashboard() {
         onClose={() => setLoginOpen(false)}
         onSuccess={handleLoginSuccess}
       />
-
-      <AddProfileModal
-        isOpen={addProfileOpen}
-        onClose={() => setAddProfileOpen(false)}
-        onSuccess={handleProfileCreated}
-      />
     </>
   );
 }
-
-

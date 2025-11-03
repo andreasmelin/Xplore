@@ -1,20 +1,40 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { getCharacterStrokes } from "./letterData";
+import { getLetterStrokes, getLowercaseLetterStrokes } from "./letterData";
 import { logLetterPractice } from "@/lib/activity-logger";
 
-type LetterTracingProps = {
+type DualLetterTracingProps = {
   letter: string;
   onBack: () => void;
   onNext: () => void;
   initialSoundEnabled?: boolean;
   initialVolume?: number;
   onSoundSettingsChange?: (enabled: boolean, volume: number) => void;
-  profileId?: string; // Add profile ID for activity tracking
+  profileId?: string;
 };
 
-export default function LetterTracing({ 
+// Guide line positions
+const TOP_LINE_Y = 150;    // Top of capital letter
+const MIDDLE_LINE_Y = 300; // X-height for lowercase
+const BOTTOM_LINE_Y = 450; // Bottom of both letters
+
+// Side-by-side positioning offsets
+const CAPITAL_OFFSET_X = -150;  // Move capital letter to the left
+const LOWERCASE_OFFSET_X = 150; // Move lowercase letter to the right
+
+// Helper function to offset strokes horizontally
+type Stroke = { points: Array<{ x: number; y: number }> };
+function offsetStrokes(strokes: Stroke[], offsetX: number): Stroke[] {
+  return strokes.map(stroke => ({
+    points: stroke.points.map(point => ({
+      x: point.x + offsetX,
+      y: point.y
+    }))
+  }));
+}
+
+export default function DualLetterTracing({ 
   letter, 
   onBack, 
   onNext,
@@ -22,21 +42,31 @@ export default function LetterTracing({
   initialVolume = 0.7,
   onSoundSettingsChange,
   profileId
-}: LetterTracingProps) {
+}: DualLetterTracingProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentStroke, setCurrentStroke] = useState(0);
   const [strokeProgress, setStrokeProgress] = useState<number[]>([]);
-  const [isComplete, setIsComplete] = useState(false);
+  const [isCapitalComplete, setIsCapitalComplete] = useState(false);
+  const [isLowercaseComplete, setIsLowercaseComplete] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [isSoundEnabled, setIsSoundEnabled] = useState(initialSoundEnabled);
   const [volume, setVolume] = useState(initialVolume);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const animationRef = useRef<number | undefined>(undefined);
   const lastUpdateRef = useRef<number>(0);
-  const startTimeRef = useRef<number>(Date.now()); // Track start time
+  const startTimeRef = useRef<number>(Date.now());
 
-  const strokes = getCharacterStrokes(letter);
+  const capitalStrokes = getLetterStrokes(letter);
+  const lowercaseStrokes = getLowercaseLetterStrokes(letter);
+  
+  // Offset strokes for side-by-side positioning
+  const capitalStrokesOffset = offsetStrokes(capitalStrokes, CAPITAL_OFFSET_X);
+  const lowercaseStrokesOffset = offsetStrokes(lowercaseStrokes, LOWERCASE_OFFSET_X);
+  
+  // Currently active strokes (capital first, then lowercase)
+  const activeStrokes = isCapitalComplete ? lowercaseStrokesOffset : capitalStrokesOffset;
+  const strokes = activeStrokes;
   
   // Notify parent of sound settings changes
   useEffect(() => {
@@ -50,11 +80,12 @@ export default function LetterTracing({
 
   // Initialize stroke progress
   useEffect(() => {
-    // Reset all state immediately
-    const initialProgress = strokes.map(() => 0);
+    // Reset all state when letter changes
+    const initialProgress = capitalStrokesOffset.map(() => 0);
     setStrokeProgress(initialProgress);
     setCurrentStroke(0);
-    setIsComplete(false);
+    setIsCapitalComplete(false);
+    setIsLowercaseComplete(false);
     setShowCelebration(false);
     setIsDrawing(false);
     
@@ -63,8 +94,19 @@ export default function LetterTracing({
     
     // Clear the background cache so it gets redrawn
     backgroundImageRef.current = null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [letter]);
+  }, [letter, capitalStrokesOffset.length]);
+
+  // Reset progress when switching between capital and lowercase
+  useEffect(() => {
+    if (isCapitalComplete && !isLowercaseComplete) {
+      // Starting lowercase - reset progress for lowercase strokes
+      const initialProgress = lowercaseStrokesOffset.map(() => 0);
+      setStrokeProgress(initialProgress);
+      setCurrentStroke(0);
+      setIsDrawing(false);
+      backgroundImageRef.current = null;
+    }
+  }, [isCapitalComplete, isLowercaseComplete, lowercaseStrokesOffset.length]);
 
   // Draw static background once and cache it
   const drawBackground = useCallback(() => {
@@ -77,13 +119,62 @@ export default function LetterTracing({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw guide letter (light gray outline) - static background
+    // Draw guide lines
+    ctx.strokeStyle = "rgba(100, 150, 255, 0.5)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    
+    // Top line (capital letter top)
+    ctx.beginPath();
+    ctx.moveTo(100, TOP_LINE_Y);
+    ctx.lineTo(500, TOP_LINE_Y);
+    ctx.stroke();
+    
+    // Middle line (lowercase x-height)
+    ctx.beginPath();
+    ctx.moveTo(100, MIDDLE_LINE_Y);
+    ctx.lineTo(500, MIDDLE_LINE_Y);
+    ctx.stroke();
+    
+    // Bottom line (both letters bottom)
+    ctx.beginPath();
+    ctx.moveTo(100, BOTTOM_LINE_Y);
+    ctx.lineTo(500, BOTTOM_LINE_Y);
+    ctx.stroke();
+    
+    ctx.setLineDash([]);
+
+    // Draw guide letters (light gray outline)
     ctx.strokeStyle = "rgba(200, 200, 200, 0.3)";
     ctx.lineWidth = 40;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    strokes.forEach((stroke) => {
+    // Always draw capital letter (as guide, darker if not complete)
+    capitalStrokesOffset.forEach((stroke) => {
+      ctx.strokeStyle = isCapitalComplete 
+        ? "rgba(200, 200, 200, 0.2)" // Lighter when complete
+        : "rgba(200, 200, 200, 0.3)"; // Normal when active
+      ctx.lineWidth = 40;
+      ctx.beginPath();
+      stroke.points.forEach((point, i) => {
+        if (i === 0) {
+          ctx.moveTo(point.x, point.y);
+        } else {
+          ctx.lineTo(point.x, point.y);
+        }
+      });
+      ctx.stroke();
+    });
+
+    // Always draw lowercase letter (as guide, darker if not ready to trace)
+    lowercaseStrokesOffset.forEach((stroke) => {
+      ctx.strokeStyle = !isCapitalComplete
+        ? "rgba(200, 200, 200, 0.15)" // Very light when capital not complete
+        : isLowercaseComplete
+        ? "rgba(200, 200, 200, 0.2)" // Lighter when complete
+        : "rgba(200, 200, 200, 0.3)"; // Normal when active
+      ctx.lineWidth = 40;
       ctx.beginPath();
       stroke.points.forEach((point, i) => {
         if (i === 0) {
@@ -96,10 +187,10 @@ export default function LetterTracing({
     });
 
     // Cache the background
-    //backgroundImageRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  }, [strokes]);
+    backgroundImageRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  }, [capitalStrokesOffset, lowercaseStrokesOffset, isCapitalComplete, isLowercaseComplete]);
 
-  // Draw background once when letter changes
+  // Draw background once when letter or state changes
   useEffect(() => {
     drawBackground();
   }, [drawBackground]);
@@ -117,23 +208,8 @@ export default function LetterTracing({
       ctx.putImageData(backgroundImageRef.current, 0, 0);
     } else {
       // Fallback: draw background if not cached
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = "rgba(200, 200, 200, 0.3)";
-      ctx.lineWidth = 40;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-
-      strokes.forEach((stroke) => {
-        ctx.beginPath();
-        stroke.points.forEach((point, i) => {
-          if (i === 0) {
-            ctx.moveTo(point.x, point.y);
-          } else {
-            ctx.lineTo(point.x, point.y);
-          }
-        });
-        ctx.stroke();
-      });
+      drawBackground();
+      return;
     }
 
     // Draw rainbow progress on top
@@ -169,7 +245,6 @@ export default function LetterTracing({
     ctx.restore();
 
     // Draw indicators (start point and arrow)
-    // Always show green circle with arrow at the start of current stroke
     if (currentStroke < strokes.length || currentStroke === 0) {
       const stroke = strokes[currentStroke];
       const progress = strokeProgress[currentStroke] || 0;
@@ -180,11 +255,9 @@ export default function LetterTracing({
         let nextPoint;
         
         if (progress === 0) {
-          // At the beginning - show at start
           indicatorPoint = stroke.points[0];
           nextPoint = stroke.points[1];
         } else {
-          // During progress - show at current position
           const pointIndex = Math.floor(stroke.points.length * progress);
           if (pointIndex < stroke.points.length - 1) {
             indicatorPoint = stroke.points[pointIndex];
@@ -243,11 +316,11 @@ export default function LetterTracing({
         }
       }
     }
-  }, [currentStroke, strokeProgress, strokes]);
+  }, [currentStroke, strokeProgress, strokes, drawBackground]);
 
   // Handle pointer down
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (isComplete) return;
+    if (isCapitalComplete && isLowercaseComplete) return;
     
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -258,23 +331,24 @@ export default function LetterTracing({
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
 
-    // Check if starting near the current progress point of current stroke
+    // Only allow tracing if we're in the correct phase
+    // If capital is not complete, only allow tracing capital strokes
+    // If capital is complete but lowercase is not, only allow tracing lowercase strokes
     if (currentStroke < strokes.length) {
       const stroke = strokes[currentStroke];
       const currentProgress = strokeProgress[currentStroke];
       const currentPointIndex = Math.floor(stroke.points.length * currentProgress);
       
-      // Check points near current progress (for resuming) or start point (for new stroke)
       const checkPoints = currentProgress === 0 
-        ? [stroke.points[0]]  // Only check start for new strokes
-        : stroke.points.slice(currentPointIndex, Math.min(currentPointIndex + 15, stroke.points.length)); // Check ahead for resume
+        ? [stroke.points[0]]
+        : stroke.points.slice(currentPointIndex, Math.min(currentPointIndex + 15, stroke.points.length));
       
       for (const point of checkPoints) {
         const distance = Math.sqrt(
           Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2)
         );
 
-        if (distance < 80) {  // Generous tolerance for pickup
+        if (distance < 80) {
           setIsDrawing(true);
           break;
         }
@@ -284,7 +358,7 @@ export default function LetterTracing({
 
   // Handle pointer move
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || isComplete) return;
+    if (!isDrawing || (isCapitalComplete && isLowercaseComplete)) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -301,7 +375,7 @@ export default function LetterTracing({
     const currentProgress = strokeProgress[currentStroke];
     const currentPointIndex = Math.floor(stroke.points.length * currentProgress);
 
-    // Look ahead up to 5 points to find a match (helps if user missed a spot)
+    // Look ahead up to 5 points to find a match
     let bestMatchIndex = -1;
     let bestMatchDistance = Infinity;
     const lookAheadCount = 5;
@@ -321,9 +395,7 @@ export default function LetterTracing({
     // If we found a matching point ahead, advance gradually
     if (bestMatchIndex >= 0) {
       const now = Date.now();
-      // Throttle updates to every 50ms for smoother tracking
       if (now - lastUpdateRef.current > 50) {
-        // Only advance by 1-2 points at a time for smoother tracking
         const advanceBy = Math.min(bestMatchIndex - currentPointIndex, 2);
         const newProgress = Math.min((currentPointIndex + advanceBy + 1) / stroke.points.length, 1);
         const newStrokeProgress = [...strokeProgress];
@@ -334,26 +406,32 @@ export default function LetterTracing({
         // Check if stroke is complete
         if (newProgress >= 1) {
           if (currentStroke === strokes.length - 1) {
-            // All strokes complete - letter finished!
-            setIsComplete(true);
-            setShowCelebration(true);
+            // All strokes complete for current letter type
             setIsDrawing(false);
             
-            // Play letter completion celebration sound
-            playLetterCompletionSound();
-            
-            // Log activity for parent dashboard
-            if (profileId) {
-              const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
-              logLetterPractice(profileId, letter, true, durationSeconds).catch(err => {
-                console.error('Failed to log letter practice:', err);
-              });
+            if (!isCapitalComplete) {
+              // Capital letter complete, move to lowercase
+              setIsCapitalComplete(true);
+              playCompletionSound();
+            } else {
+              // Lowercase complete, all done!
+              setIsLowercaseComplete(true);
+              setShowCelebration(true);
+              playCompletionSound();
+              
+              // Log activity for parent dashboard
+              if (profileId) {
+                const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+                logLetterPractice(profileId, `${letter.toUpperCase()}${letter.toLowerCase()}`, true, durationSeconds).catch(err => {
+                  console.error('Failed to log letter practice:', err);
+                });
+              }
+              
+              // Hide celebration after 3 seconds
+              setTimeout(() => {
+                setShowCelebration(false);
+              }, 3000);
             }
-            
-            // Hide celebration after 3 seconds
-            setTimeout(() => {
-              setShowCelebration(false);
-            }, 3000);
           } else {
             // Move to next stroke
             setCurrentStroke(currentStroke + 1);
@@ -370,16 +448,16 @@ export default function LetterTracing({
   };
 
   // Play sound when a letter is completed
-  const playLetterCompletionSound = async () => {
+  const playCompletionSound = async () => {
     if (!isSoundEnabled) return;
     
     try {
       const cheerPhrases = [
-        "Hurra! Bra jobbat!",
-        "Fantastiskt! Du är en stjärna!",
-        "Perfekt! Så bra!",
-        "Underbart! Fortsätt så!",
-        "Jättebra! Du klarade det!",
+        "Bra jobbat!",
+        "Fantastiskt!",
+        "Perfekt!",
+        "Underbart!",
+        "Jättebra!",
       ];
       const randomPhrase = cheerPhrases[Math.floor(Math.random() * cheerPhrases.length)];
       
@@ -398,24 +476,24 @@ export default function LetterTracing({
         const audio = new Audio(audioUrl);
         audio.volume = volume;
         audio.play().catch(() => {
-          // Ignore audio play errors (e.g., autoplay policy)
+          // Ignore audio play errors
         });
         
-        // Clean up the URL after playing
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
         };
       }
     } catch (error) {
-      // Silently fail if TTS is unavailable
-      console.log("Could not play letter completion sound:", error);
+      console.log("Could not play completion sound:", error);
     }
   };
 
   const handleReset = () => {
-    setStrokeProgress(strokes.map(() => 0));
+    const initialProgress = capitalStrokesOffset.map(() => 0);
+    setStrokeProgress(initialProgress);
     setCurrentStroke(0);
-    setIsComplete(false);
+    setIsCapitalComplete(false);
+    setIsLowercaseComplete(false);
     setShowCelebration(false);
     setIsDrawing(false);
     
@@ -425,25 +503,13 @@ export default function LetterTracing({
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Redraw background
-        ctx.strokeStyle = "rgba(200, 200, 200, 0.3)";
-        ctx.lineWidth = 40;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        strokes.forEach((stroke) => {
-          ctx.beginPath();
-          stroke.points.forEach((point, i) => {
-            if (i === 0) {
-              ctx.moveTo(point.x, point.y);
-            } else {
-              ctx.lineTo(point.x, point.y);
-            }
-          });
-          ctx.stroke();
-        });
+        backgroundImageRef.current = null;
+        drawBackground();
       }
     }
   };
+
+  const isComplete = isCapitalComplete && isLowercaseComplete;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-500 to-pink-500 flex flex-col">
@@ -457,7 +523,7 @@ export default function LetterTracing({
             ← Tillbaka
           </button>
           <h1 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-            {letter === "." ? "Punkt" : letter === "!" ? "Utropstecken" : letter === "?" ? "Frågetecken" : letter === "," ? "Komma" : `Bokstaven ${letter}`}
+            {isCapitalComplete ? `Bokstaven ${letter.toLowerCase()}` : `Bokstaven ${letter.toUpperCase()}`}
           </h1>
           <div className="flex items-center gap-2">
             {/* Sound Control */}
@@ -527,8 +593,28 @@ export default function LetterTracing({
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-6 relative">
+        {/* Progress indicator */}
+        {!isComplete && (
+          <div className="mb-4 text-white text-lg font-semibold drop-shadow-lg">
+            {isCapitalComplete ? (
+              <span>Nu ritar du den lilla bokstaven →</span>
+            ) : (
+              <span>Först ritar du den stora bokstaven ←</span>
+            )}
+          </div>
+        )}
+
         {/* Canvas */}
         <div className="relative">
+          {/* Letter labels */}
+          <div className="absolute -top-12 left-0 right-0 flex justify-between px-8">
+            <div className="text-white text-2xl font-bold drop-shadow-lg">
+              {letter.toUpperCase()}
+            </div>
+            <div className="text-white text-2xl font-bold drop-shadow-lg">
+              {letter.toLowerCase()}
+            </div>
+          </div>
           <canvas
             ref={canvasRef}
             width={600}

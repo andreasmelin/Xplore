@@ -49,6 +49,11 @@ export async function checkQuota(userId: string, cost: number): Promise<{ allowe
 
   if (error && error.code !== 'PGRST116') {
     // Error other than "not found"
+    // If table doesn't exist (42P01), allow the action (graceful degradation)
+    if (error.code === '42P01' || error.message?.includes('daily_quota')) {
+      console.warn('[Quota] Table not found - bypassing quota check. Run migration: db/migrations/004_quota_system.sql');
+      return { allowed: true, remaining: DAILY_QUOTA_LIMIT, limit: DAILY_QUOTA_LIMIT };
+    }
     console.error('[Quota] Error checking quota:', error);
     return { allowed: false, remaining: 0, limit: DAILY_QUOTA_LIMIT };
   }
@@ -96,6 +101,11 @@ export async function consumeQuota(
     });
 
   if (upsertError) {
+    // If table doesn't exist, allow the action (graceful degradation)
+    if (upsertError.code === '42P01' || upsertError.message?.includes('daily_quota')) {
+      console.warn('[Quota] Table not found - bypassing quota tracking. Run migration: db/migrations/004_quota_system.sql');
+      return { success: true, remaining: DAILY_QUOTA_LIMIT };
+    }
     console.error('[Quota] Error consuming quota:', upsertError);
     return { success: false, remaining: check.remaining };
   }

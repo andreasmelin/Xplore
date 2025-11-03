@@ -130,7 +130,7 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini-tts",
+        model: "tts-1",
         input: text,
         voice,
         response_format: format,

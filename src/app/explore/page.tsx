@@ -335,6 +335,7 @@ export default function ExplorePage() {
                         ? profiles.find((p) => p.id === activeProfileId)?.age ?? null
                         : null
                     }
+                    profileId={activeProfileId}
                   />
                 )}
               </>

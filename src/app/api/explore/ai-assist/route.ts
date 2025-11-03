@@ -11,6 +11,7 @@ type RequestBody = {
     lessonTitle: string;
     currentContent: string;
     contentType: string;
+    expansionLevel?: number;
   };
   profileAge: number | null;
 };
@@ -62,23 +63,37 @@ export async function POST(req: Request) {
     let userMessage = "";
 
     if (mode === "tell-more") {
-      systemMessage = `Du är en entusiastisk och pedagogisk AI-assistent för barn ${ageGroup}. 
-Din uppgift är att ge mer detaljer och fördjupning om ett ämne som barnet just lärt sig om.
+      const expansionLevel = context.expansionLevel || 1;
 
-Riktlinjer:
-- Använd enkelt, tydligt språk anpassat för ${ageGroup}
-- Var entusiastisk och uppmuntrande
-- Ge 2-4 extra fakta eller detaljer
-- Använd jämförelser och exempel som barn förstår
-- Gör det spännande och roligt!
-- Håll svaret till 3-5 meningar
-- Använd inte svåra ord utan att förklara dem`;
+      systemMessage = `Du är en pedagogisk AI-assistent för barn ${ageGroup}. 
+Din uppgift är att ge YTTERLIGARE information som kompletterar vad barnet redan har läst.
+
+VIKTIGA REGLER:
+- Skriv DIREKT fakta och information - ingen small talk eller utrop som "Åh, vad spännande"
+- Matcha den ursprungliga textens ton, stil OCH LÄNGD (informationstät, pedagogisk)
+- Använd samma format som originaltexten (inte konversationsstil)
+- Behåll SAMMA SVÅRIGHETSGRAD som originaltexten - inte mer avancerat
+- Ge NY information som barnet inte redan har läst (inte upprepa tidigare sagt)
+- Använd konkreta fakta, siffror, exempel - inget fluff
+- Skriv ungefär LIKA MYCKET text som originalstycket (inte längre!)
+
+SPRÅKANPASSNING:
+- Anpassat språk för ${ageGroup} - varje gång du skriver, inte bara första gången
+- Du får använda avancerade/tekniska ord (som "ekolokalisering", "fotosyntesen", "gravitation")
+- Men FÖRKLARA ALLTID sådana ord direkt i samma mening
+- Exempel: "Fladdermössen använder ekolokalisering - de skickar ut ljud och lyssnar på ekot för att hitta i mörkret"
+- Använd ord de kan förstå, men introducera gärna nya begrepp med tydliga förklaringar
+
+Detta är tillägg ${expansionLevel} - ge NEW information på samma nivå som originalet.`;
 
       userMessage = `Ämne: ${context.topicTitle}
 Lektion: ${context.lessonTitle}
-Vad vi precis lärt oss: ${context.currentContent}
+Åldersgrupp: ${ageGroup}
 
-Berätta mer om detta! Ge mig fler spännande detaljer som passar för barn ${ageGroup}.`;
+ORIGINALINNEHÅLL:
+${context.currentContent}
+
+Ge ytterligare information (tillägg ${expansionLevel}) som kompletterar detta. Matcha SAMMA längd och SAMMA svårighetsgrad som originalet. Skriv direkt informationen utan inledande fraser.`;
     } else {
       // ask-question mode
       systemMessage = `Du är en hjälpsam och pedagogisk AI-assistent för barn ${ageGroup}.
@@ -91,7 +106,13 @@ Riktlinjer:
 - Använd jämförelser och exempel som barn förstår
 - Om frågan är för komplex, förenkla svaret
 - Håll svaret till 3-6 meningar
-- Uppmuntra nyfikenhet och fortsatt lärande`;
+- Uppmuntra nyfikenhet och fortsatt lärande
+
+SPRÅKANPASSNING:
+- Du får använda tekniska/avancerade ord när det passar
+- Men FÖRKLARA ALLTID dem direkt: "Ekolokalisering betyder att man använder ljud för att hitta saker"
+- Introducera nya begrepp på ett naturligt sätt som passar ${ageGroup}
+- Bygg på barnets ordförråd samtidigt som du gör det begripligt`;
 
       userMessage = `Ämne: ${context.topicTitle}
 Lektion: ${context.lessonTitle}
@@ -115,8 +136,8 @@ Svara på barnets fråga på ett sätt som passar för barn ${ageGroup}.`;
           { role: "system", content: systemMessage },
           { role: "user", content: userMessage },
         ],
-        temperature: 0.8,
-        max_tokens: 500,
+        temperature: mode === "tell-more" ? 0.4 : 0.7, // Lower temp for consistent expansions
+        max_tokens: 400, // Match original text length
       }),
     });
 
