@@ -130,7 +130,13 @@ export default function SentenceTracing({
           URL.revokeObjectURL(url);
         };
         
-        await audio.play();
+        // iOS-friendly play with promise handling
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((error) => {
+            console.log('Word TTS play prevented:', error);
+          });
+        }
       }
     } catch (error) {
       console.error('TTS error:', error);
@@ -167,7 +173,13 @@ export default function SentenceTracing({
           URL.revokeObjectURL(url);
         };
         
-        await audio.play();
+        // iOS-friendly play with promise handling
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((error) => {
+            console.log('Sentence TTS play prevented:', error);
+          });
+        }
       }
     } catch (error) {
       console.error('TTS error:', error);
@@ -652,7 +664,16 @@ export default function SentenceTracing({
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
         audio.volume = volume;
-        audio.play().catch(() => {});
+        
+        // iOS requires explicit play promise handling
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((error) => {
+            console.log("Audio play prevented:", error);
+            // iOS may block autoplay - user needs to interact first
+          });
+        }
+        
         audio.onended = () => URL.revokeObjectURL(audioUrl);
       }
     } catch (error) {
@@ -676,6 +697,28 @@ export default function SentenceTracing({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-600 via-teal-500 to-blue-500 flex flex-col">
+      {/* Range Slider Styles for iOS */}
+      <style jsx>{`
+        input[type="range"]::-webkit-slider-thumb {
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #9333ea;
+          cursor: pointer;
+          border: 2px solid white;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #9333ea;
+          cursor: pointer;
+          border: 2px solid white;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+      `}</style>
       {/* Header */}
       <header className="bg-white/10 backdrop-blur-sm border-b border-white/20 p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
@@ -729,7 +772,10 @@ export default function SentenceTracing({
                           step="0.1"
                           value={volume}
                           onChange={(e) => setVolume(parseFloat(e.target.value))}
-                          className="w-full accent-purple-500"
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          style={{
+                            background: `linear-gradient(to right, #9333ea 0%, #9333ea ${volume * 100}%, #e5e7eb ${volume * 100}%, #e5e7eb 100%)`
+                          }}
                         />
                         <div className="flex justify-between text-xs text-gray-500">
                           <span>🔈</span>
