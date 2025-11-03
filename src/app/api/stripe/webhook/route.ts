@@ -3,6 +3,11 @@ import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { stripe, updateSubscriptionFromStripe } from '@/lib/stripe/server';
 
+// Extended Invoice type with subscription field
+interface InvoiceWithSubscription extends Stripe.Invoice {
+  subscription?: string | Stripe.Subscription;
+}
+
 // Disable body parsing, we need the raw body
 export const runtime = 'nodejs';
 
@@ -69,11 +74,13 @@ export async function POST(req: NextRequest) {
       }
 
       case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as InvoiceWithSubscription;
         console.log('Payment succeeded:', invoice.id);
         
         // Retrieve and update subscription
-        const subscriptionId = (invoice as any).subscription as string | undefined;
+        const subscriptionId = typeof invoice.subscription === 'string' 
+          ? invoice.subscription 
+          : invoice.subscription?.id;
           
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -83,13 +90,15 @@ export async function POST(req: NextRequest) {
       }
 
       case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as InvoiceWithSubscription;
         console.error('Payment failed:', invoice.id);
         
         // TODO: Send email to customer about failed payment
         // TODO: Update subscription status
         
-        const subscriptionId = (invoice as any).subscription as string | undefined;
+        const subscriptionId = typeof invoice.subscription === 'string' 
+          ? invoice.subscription 
+          : invoice.subscription?.id;
           
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
