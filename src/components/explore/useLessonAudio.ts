@@ -2,10 +2,43 @@ import { useEffect, useRef, useState } from "react";
 
 type AudioState = "idle" | "loading" | "playing" | "paused" | "error";
 
+// Global audio context unlock for iOS
+let audioUnlocked = false;
+
 export function useLessonAudio(enabled: boolean, volume: number) {
   const [state, setState] = useState<AudioState>("idle");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentTextRef = useRef<string>("");
+
+  // Unlock audio on first user interaction (iOS requirement)
+  useEffect(() => {
+    if (audioUnlocked) return;
+    
+    const unlockAudio = () => {
+      if (audioUnlocked) return;
+      
+      // Create and play a silent audio to unlock iOS audio
+      const silentAudio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAJAAAAAAAAAAAAnEbtTUYAAAAAAD/+xDEAAPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+      silentAudio.play().then(() => {
+        audioUnlocked = true;
+        console.log('[Audio] iOS audio context unlocked');
+      }).catch(() => {
+        // Ignore - will try again on next interaction
+      });
+    };
+    
+    // Listen for any user interaction
+    const events = ['touchstart', 'touchend', 'click'];
+    events.forEach(event => {
+      document.addEventListener(event, unlockAudio, { once: true, passive: true });
+    });
+    
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, unlockAudio);
+      });
+    };
+  }, []);
 
   useEffect(() => {
     // Update volume when it changes
@@ -63,18 +96,29 @@ export function useLessonAudio(enabled: boolean, volume: number) {
         audio.onplay = () => setState("playing");
         audio.onpause = () => setState("paused");
         audio.onended = () => setState("idle");
-        audio.onerror = () => setState("error");
+        audio.onerror = (e) => {
+          console.error("[TTS] Audio error:", e);
+          setState("error");
+        };
 
-        // Handle play promise to avoid interruption errors
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((error) => {
-            // Ignore AbortError - happens when navigating quickly
-            if (error.name !== 'AbortError') {
-              console.error("[TTS] Play error:", error);
-              setState("error");
-            }
-          });
+        // iOS-friendly play with proper error handling
+        try {
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            await playPromise.catch((error) => {
+              // DOMException: play() failed because the user didn't interact with the document first
+              if (error.name === 'NotAllowedError') {
+                console.log("[TTS] Play blocked - user interaction required");
+                setState("error");
+              } else if (error.name !== 'AbortError') {
+                console.error("[TTS] Play error:", error);
+                setState("error");
+              }
+            });
+          }
+        } catch (error) {
+          console.error("[TTS] Unexpected play error:", error);
+          setState("error");
         }
       } else {
         // Fallback: blob response (shouldn't happen with new API)
@@ -91,22 +135,31 @@ export function useLessonAudio(enabled: boolean, volume: number) {
           setState("idle");
           URL.revokeObjectURL(url);
         };
-        audio.onerror = () => {
+        audio.onerror = (e) => {
+          console.error("[TTS] Audio error:", e);
           setState("error");
           URL.revokeObjectURL(url);
         };
 
-        // Handle play promise to avoid interruption errors
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((error) => {
-            // Ignore AbortError - happens when navigating quickly
-            if (error.name !== 'AbortError') {
-              console.error("[TTS] Play error:", error);
-              setState("error");
-            }
-            URL.revokeObjectURL(url);
-          });
+        // iOS-friendly play with proper error handling
+        try {
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            await playPromise.catch((error) => {
+              if (error.name === 'NotAllowedError') {
+                console.log("[TTS] Play blocked - user interaction required");
+                setState("error");
+              } else if (error.name !== 'AbortError') {
+                console.error("[TTS] Play error:", error);
+                setState("error");
+              }
+              URL.revokeObjectURL(url);
+            });
+          }
+        } catch (error) {
+          console.error("[TTS] Unexpected play error:", error);
+          setState("error");
+          URL.revokeObjectURL(url);
         }
       }
     } catch (error) {
@@ -132,7 +185,14 @@ export function useLessonAudio(enabled: boolean, volume: number) {
 
   function resume() {
     if (audioRef.current && state === "paused") {
-      audioRef.current.play().catch(() => setState("error"));
+      // iOS-friendly resume with proper promise handling
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          console.error("[TTS] Resume error:", error);
+          setState("error");
+        });
+      }
     }
   }
 
@@ -146,4 +206,3 @@ export function useLessonAudio(enabled: boolean, volume: number) {
     isLoading: state === "loading",
   };
 }
-
