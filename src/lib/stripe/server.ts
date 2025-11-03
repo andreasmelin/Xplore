@@ -1,6 +1,6 @@
 // Stripe server-side utilities
 import Stripe from 'stripe';
-import { adminClient } from '@/lib/supabase/admin';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing STRIPE_SECRET_KEY environment variable');
@@ -10,6 +10,9 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2023-10-16',
   typescript: true,
 });
+
+// Admin client for database operations
+const adminClient = createSupabaseAdminClient();
 
 // Get or create Stripe customer for user
 export async function getOrCreateStripeCustomer(userId: string, email: string): Promise<string> {
