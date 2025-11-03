@@ -139,23 +139,36 @@ export async function updateSubscriptionFromStripe(stripeSubscription: Stripe.Su
   const userId = stripeSubscription.metadata.userId;
   const planName = stripeSubscription.metadata.planName || 'free';
 
+  // Type-safe access to subscription properties
+  const sub = stripeSubscription as unknown as {
+    customer: string;
+    id: string;
+    items: { data: Array<{ price: { id: string } }> };
+    status: string;
+    current_period_start: number;
+    current_period_end: number;
+    trial_end?: number | null;
+    cancel_at_period_end: boolean;
+    canceled_at?: number | null;
+  };
+
   const { error } = await adminClient
     .from('subscriptions')
     .upsert({
       user_id: userId,
-      stripe_customer_id: stripeSubscription.customer as string,
-      stripe_subscription_id: stripeSubscription.id,
-      stripe_price_id: stripeSubscription.items.data[0].price.id,
+      stripe_customer_id: sub.customer,
+      stripe_subscription_id: sub.id,
+      stripe_price_id: sub.items.data[0].price.id,
       plan_name: planName,
-      status: stripeSubscription.status,
-      current_period_start: new Date(stripeSubscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
-      trial_end: stripeSubscription.trial_end 
-        ? new Date(stripeSubscription.trial_end * 1000).toISOString()
+      status: sub.status,
+      current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+      trial_end: sub.trial_end 
+        ? new Date(sub.trial_end * 1000).toISOString()
         : null,
-      cancel_at_period_end: stripeSubscription.cancel_at_period_end,
-      canceled_at: stripeSubscription.canceled_at
-        ? new Date(stripeSubscription.canceled_at * 1000).toISOString()
+      cancel_at_period_end: sub.cancel_at_period_end,
+      canceled_at: sub.canceled_at
+        ? new Date(sub.canceled_at * 1000).toISOString()
         : null,
     }, {
       onConflict: 'user_id',
