@@ -73,10 +73,12 @@ export async function POST(req: NextRequest) {
         console.log('Payment succeeded:', invoice.id);
         
         // Retrieve and update subscription
-        if (invoice.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(
-            invoice.subscription as string
-          );
+        const subscriptionId = typeof invoice.subscription === 'string' 
+          ? invoice.subscription 
+          : invoice.subscription?.id;
+          
+        if (subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           await updateSubscriptionFromStripe(subscription);
         }
         break;
@@ -89,10 +91,12 @@ export async function POST(req: NextRequest) {
         // TODO: Send email to customer about failed payment
         // TODO: Update subscription status
         
-        if (invoice.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(
-            invoice.subscription as string
-          );
+        const subscriptionId = typeof invoice.subscription === 'string' 
+          ? invoice.subscription 
+          : invoice.subscription?.id;
+          
+        if (subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           await updateSubscriptionFromStripe(subscription);
         }
         break;
