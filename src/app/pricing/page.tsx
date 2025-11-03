@@ -153,12 +153,12 @@ export default function PricingPage() {
                   <div
                     key={plan.id}
                     className={`relative bg-white/10 backdrop-blur-sm rounded-3xl p-8 border-2 transition-all hover:scale-105 hover:shadow-2xl ${
-                      plan.popular
+                      'popular' in plan && plan.popular
                         ? "border-yellow-400 shadow-xl shadow-yellow-500/20"
                         : "border-white/20"
                     }`}
                   >
-                    {plan.popular && (
+                    {'popular' in plan && plan.popular && (
                       <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-sm font-bold rounded-full shadow-lg">
                         ⭐ Mest populär
                       </div>
