@@ -66,16 +66,16 @@ export default function SentenceTracing({
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   // Debug logging for sentence tracing
-  const sentenceDebugLogs = useRef<string[]>([]);
+  const [sentenceDebugLogs, setSentenceDebugLogs] = useState<string[]>([]);
   const [showSentenceDebug, setShowSentenceDebug] = useState(false);
 
   const addSentenceDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     const logEntry = `[${timestamp}] ${message}`;
-    sentenceDebugLogs.current.push(logEntry);
-    if (sentenceDebugLogs.current.length > 50) {
-      sentenceDebugLogs.current = sentenceDebugLogs.current.slice(-50);
-    }
+    setSentenceDebugLogs(prev => {
+      const newLogs = [...prev, logEntry];
+      return newLogs.length > 50 ? newLogs.slice(-50) : newLogs;
+    });
   };
 
   // Force unmute function (similar to chat interface)
@@ -131,19 +131,24 @@ export default function SentenceTracing({
           }
         }
 
-        const audioEl = audioRef.current;
-        if (audioEl) {
-          audioEl.muted = false;
-          audioEl.volume = volume;
-          try { audioEl.setAttribute('playsinline', 'true'); } catch {}
-          addSentenceDebugLog(`🔊 Audio element configured: volume=${volume}, muted=${audioEl.muted}`);
+        // Try to use existing audio element, or create a temporary one for unlocking
+        let audioEl = audioRef.current;
 
-          void audioEl.play().catch((error) => {
-            addSentenceDebugLog(`❌ Audio element play failed: ${error}`);
-          });
-        } else {
-          addSentenceDebugLog('⚠️ No audio element found');
+        if (!audioEl) {
+          addSentenceDebugLog('⚠️ No audio element found, creating temporary one for unlocking');
+          audioEl = new Audio();
+          audioEl.volume = 0.01; // Very quiet for unlocking
+          try { audioEl.setAttribute('playsinline', 'true'); } catch {}
         }
+
+        audioEl.muted = false;
+        audioEl.volume = audioEl.volume || volume;
+        try { audioEl.setAttribute('playsinline', 'true'); } catch {}
+        addSentenceDebugLog(`🔊 Audio element configured: volume=${audioEl.volume}, muted=${audioEl.muted}`);
+
+        void audioEl.play().catch((error) => {
+          addSentenceDebugLog(`❌ Audio element play failed: ${error}`);
+        });
 
         addSentenceDebugLog('✅ Force unmute process completed');
       } else {
@@ -242,8 +247,9 @@ export default function SentenceTracing({
           addSentenceDebugLog('❌ Word audio playback error');
         };
 
-        // iOS-friendly play with promise handling
-        addSentenceDebugLog('▶️ Attempting to play word audio...');
+        // iOS requires audio.play() to happen within user gesture context
+        // Try to play immediately without additional async operations
+        addSentenceDebugLog('▶️ Attempting immediate word audio play (within user gesture)...');
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
@@ -314,8 +320,9 @@ export default function SentenceTracing({
           addSentenceDebugLog('❌ Sentence audio playback error');
         };
 
-        // iOS-friendly play with promise handling
-        addSentenceDebugLog('▶️ Attempting to play sentence audio...');
+        // iOS requires audio.play() to happen within user gesture context
+        // Try to play immediately without additional async operations
+        addSentenceDebugLog('▶️ Attempting immediate sentence audio play (within user gesture)...');
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
@@ -711,10 +718,9 @@ export default function SentenceTracing({
               if (wordComplete && !completedWordsRef.current.has(currentWordIndex)) {
                 completedWordsRef.current.add(currentWordIndex);
 
-                // Play word TTS after a short delay
-                setTimeout(() => {
-                  playWordTTS(currentWordIndex);
-                }, 300);
+                // Play word TTS immediately to stay within user gesture context
+                addSentenceDebugLog('🎯 Word completed - playing TTS immediately');
+                playWordTTS(currentWordIndex);
 
                 // Move to next word if not the last word
                 if (currentWordIndex < words.length - 1) {
@@ -740,10 +746,9 @@ export default function SentenceTracing({
               
               // Move to next character (letter-by-letter within a word)
               if (isLastChar) {
-                // All letters complete - play sentence TTS
-                setTimeout(() => {
-                  playSentenceTTS();
-                }, 500);
+                // All letters complete - play sentence TTS immediately
+                addSentenceDebugLog('🎯 Sentence completed - playing TTS immediately');
+                playSentenceTTS();
                 
                 setShowCelebration(true);
                 if (profileId) {
@@ -945,22 +950,43 @@ export default function SentenceTracing({
         <div className="fixed top-20 left-4 right-4 z-50 max-h-60 overflow-y-auto rounded-2xl bg-black/90 text-green-400 p-4 shadow-xl border border-gray-600 font-mono text-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="font-bold">🔊 Sentence Tracing Debug Logs</span>
-            <button
-              onClick={() => setShowSentenceDebug(false)}
-              className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 rounded"
-            >
-              Close
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(sentenceDebugLogs.join('\n')).catch(() => {});
+                }}
+                className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded"
+              >
+                Copy Logs
+              </button>
+              <button
+                onClick={() => setSentenceDebugLogs([])}
+                className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 rounded"
+              >
+                Clear
+              </button>
+              <button
+                onClick={() => setShowSentenceDebug(false)}
+                className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 rounded"
+              >
+                Close
+              </button>
+            </div>
           </div>
           <div className="space-y-1">
-            {sentenceDebugLogs.current.length === 0 ? (
+            {sentenceDebugLogs.length === 0 ? (
               <div className="text-gray-500 italic">No logs yet. Complete a word to generate logs.</div>
             ) : (
-              sentenceDebugLogs.current.map((log, index) => (
+              sentenceDebugLogs.slice(-10).map((log, index) => (
                 <div key={index} className="whitespace-pre-wrap break-words">
                   {log}
                 </div>
               ))
+            )}
+            {sentenceDebugLogs.length > 10 && (
+              <div className="text-gray-500 italic text-center mt-2">
+                ... and {sentenceDebugLogs.length - 10} more logs
+              </div>
             )}
           </div>
         </div>
