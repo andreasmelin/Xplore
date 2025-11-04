@@ -145,7 +145,7 @@ export default function SentenceInput({ onSentenceSubmit, onBack }: SentenceInpu
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Till exempel: Jag heter Lisa"
-                className="w-full px-4 py-3 text-lg rounded-lg border-2 border-gray-300 focus:border-teal-500 focus:outline-none resize-none"
+                className="w-full px-4 py-3 text-lg rounded-lg border-2 border-gray-300 focus:border-teal-500 focus:outline-none resize-none bg-white text-gray-900 placeholder-gray-500"
                 rows={3}
                 maxLength={100}
               />

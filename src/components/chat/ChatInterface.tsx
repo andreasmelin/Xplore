@@ -738,7 +738,7 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
             className="rounded-lg"
           />
           <span className="text-xl">🔊</span>
-          <span className="text-sm font-semibold">Sinus pratar</span>
+          <span className="text-sm font-semibold">Spela upp</span>
         </button>
       </div>
 
