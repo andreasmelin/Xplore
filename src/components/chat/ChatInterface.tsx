@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCompletion } from "@ai-sdk/react";
+import Image from "next/image";
 
 type Profile = { id: string; name: string; age: number };
 
@@ -553,8 +554,9 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
         void renderTextTypewriter(localAssistantId, assistantText, displayToken);
       }
 
-      // Audio playback logic (simplified)
+      // Force unmute before audio playback
       if (assistantText && ttsOn) {
+        forceUnmute();
         try {
           if (ttsProvider === "openai-rest") {
             setShowMagic(true);
@@ -719,21 +721,19 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
         </div>
       </form>
 
-      {/* Audio Toggle Button - Always Visible */}
+      {/* Audio Indicator - Always Visible */}
       <div className="mb-4 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setTtsOn((v) => !v)}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all ${
-            ttsOn 
-              ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700" 
-              : "bg-gray-400 text-white hover:bg-gray-500"
-          }`}
-          aria-label={ttsOn ? "Stäng av ljud" : "Sätt på ljud"}
-        >
-          <span className="text-xl">{ttsOn ? "🔊" : "🔇"}</span>
-          <span>{ttsOn ? "Ljud: På" : "Ljud: Av"}</span>
-        </button>
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg">
+          <Image
+            src="/logos/sinus-logo-1024px.png"
+            alt="Sinus"
+            width={24}
+            height={24}
+            className="rounded-lg"
+          />
+          <span className="text-xl">🔊</span>
+          <span className="text-sm font-semibold">Sinus pratar</span>
+        </div>
       </div>
 
       {/* Messages */}
