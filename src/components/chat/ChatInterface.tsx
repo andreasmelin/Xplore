@@ -46,6 +46,7 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
   const [showMagic, setShowMagic] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
+  const hasInteractedRef = useRef(false);
   const [didAttachTapUnlock, setDidAttachTapUnlock] = useState(false);
   
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -506,6 +507,9 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || !activeProfile) return;
+    
+    // Mark that user has interacted - enables auto-play
+    hasInteractedRef.current = true;
 
     const prefix = `Du pratar med ett barn som heter ${activeProfile.name} som är ${activeProfile.age} år gammal. Svara enkelt, vänligt och på svenska, anpassat till åldern.\n\n`;
     const finalPrompt = `${prefix}${trimmed}`;
@@ -576,7 +580,19 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
                   audio.onended = () => { resolve(); };
                   audio.onerror = () => { resolve(); };
                   audio.onplay = () => { if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; } };
-                  void audio.play().catch(() => { setNeedsAudioUnlock(true); setAudioStatus("Tryck 'Aktivera ljud'"); setShowMagic(false); overlayClearedRef.current = true; resolve(); });
+                  void audio.play().catch((err) => { 
+                    // Only show unlock button on first interaction
+                    if (!hasInteractedRef.current) {
+                      setNeedsAudioUnlock(true); 
+                      setAudioStatus("Tryck 'Aktivera ljud'"); 
+                    } else {
+                      // After first interaction, just try again silently
+                      console.log("Audio play failed:", err);
+                    }
+                    setShowMagic(false); 
+                    overlayClearedRef.current = true; 
+                    resolve(); 
+                  });
                 });
                 if (playbackTokenRef.current === tokenAtStart) setAudioStatus(null);
               } catch {
@@ -712,12 +728,20 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
           <div className="inline-flex items-center gap-2">
             <button
               type="button"
-              onClick={() => { forceUnmute(); setNeedsAudioUnlock(false); }}
+              onClick={() => { 
+                forceUnmute(); 
+                setNeedsAudioUnlock(false); 
+                hasInteractedRef.current = true;
+                // Try to play any pending audio
+                if (sentenceAudioRef.current) {
+                  void sentenceAudioRef.current.play().catch(() => {});
+                }
+              }}
               className="text-xs rounded-full px-3 py-1 bg-white/90 hover:bg-white text-gray-700 shadow border border-gray-200"
             >
               Aktivera ljud
             </button>
-            <span className="text-[11px] text-indigo-100/80">iOS kräver ett tryck för att spela upp ljud</span>
+            <span className="text-[11px] text-indigo-100/80">Klicka för att aktivera ljud (behövs bara en gång)</span>
           </div>
         ) : null}
         {showMagic ? (
