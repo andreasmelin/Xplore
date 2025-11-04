@@ -63,6 +63,43 @@ export default function SentenceTracing({
   const lastUpdateRef = useRef<number>(0);
   const completedWordsRef = useRef<Set<number>>(new Set()); // Track completed words for TTS
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Force unmute function (similar to chat interface)
+  function forceUnmute() {
+    try {
+      if (typeof window !== 'undefined') {
+        if (!audioCtxRef.current) {
+          try {
+            const w = window as unknown as { webkitAudioContext?: typeof AudioContext };
+            const Ctor = w.webkitAudioContext ?? window.AudioContext;
+            if (Ctor) audioCtxRef.current = new Ctor();
+          } catch {}
+        }
+        const ctx = audioCtxRef.current;
+        if (ctx && ctx.state !== 'running') {
+          void ctx.resume().catch(() => {});
+        }
+        if (ctx) {
+          try {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            gain.gain.value = 0.00001;
+            osc.connect(gain).connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.02);
+          } catch {}
+        }
+      }
+      const audioEl = audioRef.current;
+      if (audioEl) {
+        audioEl.muted = false;
+        audioEl.volume = volume;
+        try { audioEl.setAttribute('playsinline', 'true'); } catch {}
+        void audioEl.play().catch(() => {});
+      }
+    } catch {}
+  }
 
   // Parse sentence into words
   const words: Word[] = [];
@@ -99,12 +136,20 @@ export default function SentenceTracing({
   // Get current traceable character index
   // TTS functions
   const playWordTTS = async (wordIndex: number) => {
-    if (!isSoundEnabled) return;
-    
+    console.log('playWordTTS called with wordIndex:', wordIndex, 'isSoundEnabled:', isSoundEnabled);
+    if (!isSoundEnabled) {
+      console.log('Sound is disabled, skipping TTS');
+      return;
+    }
+
+    // Force unmute before playing TTS
+    forceUnmute();
+
     try {
       const word = words[wordIndex];
       const wordText = word.chars.join('');
-      
+      console.log('Playing word TTS:', wordText);
+
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -132,9 +177,12 @@ export default function SentenceTracing({
         };
         
         // iOS-friendly play with promise handling
+        console.log('Attempting to play word audio, volume:', volume);
         const playPromise = audio.play();
         if (playPromise !== undefined) {
-          playPromise.catch((error) => {
+          playPromise.then(() => {
+            console.log('Word audio started playing successfully');
+          }).catch((error) => {
             console.log('Word TTS play prevented:', error);
           });
         }
@@ -145,9 +193,17 @@ export default function SentenceTracing({
   };
 
   const playSentenceTTS = async () => {
-    if (!isSoundEnabled) return;
-    
+    console.log('playSentenceTTS called, isSoundEnabled:', isSoundEnabled);
+    if (!isSoundEnabled) {
+      console.log('Sound is disabled, skipping sentence TTS');
+      return;
+    }
+
+    // Force unmute before playing TTS
+    forceUnmute();
+
     try {
+      console.log('Playing sentence TTS:', sentence);
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,9 +231,12 @@ export default function SentenceTracing({
         };
         
         // iOS-friendly play with promise handling
+        console.log('Attempting to play sentence audio, volume:', volume);
         const playPromise = audio.play();
         if (playPromise !== undefined) {
-          playPromise.catch((error) => {
+          playPromise.then(() => {
+            console.log('Sentence audio started playing successfully');
+          }).catch((error) => {
             console.log('Sentence TTS play prevented:', error);
           });
         }
