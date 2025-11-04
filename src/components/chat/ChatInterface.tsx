@@ -508,8 +508,11 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
     const trimmed = input.trim();
     if (!trimmed || !activeProfile) return;
     
-    // Mark that user has interacted - enables auto-play
-    hasInteractedRef.current = true;
+    // Force unmute on first user input to unlock audio for entire session
+    if (!hasInteractedRef.current) {
+      forceUnmute();
+      hasInteractedRef.current = true;
+    }
 
     const prefix = `Du pratar med ett barn som heter ${activeProfile.name} som är ${activeProfile.age} år gammal. Svara enkelt, vänligt och på svenska, anpassat till åldern.\n\n`;
     const finalPrompt = `${prefix}${trimmed}`;
@@ -581,14 +584,11 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
                   audio.onerror = () => { resolve(); };
                   audio.onplay = () => { if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; } };
                   void audio.play().catch((err) => { 
-                    // Auto force unmute and retry
-                    console.log("Audio play failed, auto-unmuting:", err);
-                    forceUnmute();
-                    hasInteractedRef.current = true;
-                    // Try playing again after unmute
+                    // If audio fails, try one more time after a brief delay
+                    console.log("Audio play failed, retrying:", err);
                     setTimeout(() => {
                       void audio.play().catch(() => {
-                        console.log("Audio still failed after unmute");
+                        console.log("Audio still failed after retry");
                       });
                     }, 100);
                     setShowMagic(false); 
