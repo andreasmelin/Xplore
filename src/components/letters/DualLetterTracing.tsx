@@ -412,13 +412,11 @@ export default function DualLetterTracing({
             if (!isCapitalComplete) {
               // Capital letter complete, move to lowercase
               setIsCapitalComplete(true);
-              playCompletionSound();
             } else {
               // Lowercase complete, all done!
               setIsLowercaseComplete(true);
               setShowCelebration(true);
-              playCompletionSound();
-              
+
               // Log activity for parent dashboard
               if (profileId) {
                 const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);

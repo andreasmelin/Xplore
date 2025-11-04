@@ -338,10 +338,7 @@ export default function LetterTracing({
             setIsComplete(true);
             setShowCelebration(true);
             setIsDrawing(false);
-            
-            // Play letter completion celebration sound
-            playLetterCompletionSound();
-            
+
             // Log activity for parent dashboard
             if (profileId) {
               const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);

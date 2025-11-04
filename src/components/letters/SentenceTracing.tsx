@@ -615,10 +615,7 @@ export default function SentenceTracing({
               const newCompletedIndices = new Set([...completedIndices, charIndex]);
               setCompletedIndices(newCompletedIndices);
               isDrawingRef.current.set(charIndex, false);
-              
-              // Play sound
-              playCompletionSound();
-              
+
               // Check if current word is complete
               const currentWord = words[currentWordIndex];
               const wordComplete = currentWord.charIndices.every(idx => newCompletedIndices.has(idx));
