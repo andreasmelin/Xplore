@@ -65,8 +65,9 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const hasInteractedRef = useRef(false);
   const [didAttachTapUnlock, setDidAttachTapUnlock] = useState(false);
-  
+
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const recordTimerRef = useRef<number | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
@@ -292,21 +293,49 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
     }
   }
 
+  // Force unmute function with Web Audio API focus
   function forceUnmute() {
     try {
+      addDebugLog('🔊 FORCE_UNMUTE: Starting chat force unmute');
+
       if (typeof window !== 'undefined') {
+        // Detect device/browser
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        addDebugLog(`📱 Device: ${isIOS ? 'iOS' : 'Other'}, Browser: ${isSafari ? 'Safari' : 'Other'}`);
+
+        // Step 1: Create and resume AudioContext
         if (!audioCtxRef.current) {
           try {
             const w = window as unknown as { webkitAudioContext?: typeof AudioContext };
             const Ctor = w.webkitAudioContext ?? window.AudioContext;
-            if (Ctor) audioCtxRef.current = new Ctor();
-          } catch {}
+            if (Ctor) {
+              audioCtxRef.current = new Ctor();
+              addDebugLog(`🎵 AudioContext created: ${Ctor.name}`);
+            } else {
+              addDebugLog('❌ No AudioContext constructor available');
+            }
+          } catch (error) {
+            addDebugLog(`❌ AudioContext creation failed: ${error}`);
+          }
         }
+
         const ctx = audioCtxRef.current;
-        if (ctx && ctx.state !== 'running') {
-          void ctx.resume().catch(() => {});
-        }
         if (ctx) {
+          addDebugLog(`🎚️ AudioContext state before: ${ctx.state}`);
+          if (ctx.state !== 'running') {
+            void ctx.resume().then(() => {
+              addDebugLog('✅ AudioContext resumed successfully');
+              setAudioUnlocked(true);
+            }).catch((error) => {
+              addDebugLog(`❌ AudioContext resume failed: ${error}`);
+            });
+          } else {
+            addDebugLog('ℹ️ AudioContext already running');
+            setAudioUnlocked(true);
+          }
+
+          // Step 2: Create silent oscillator to unlock Web Audio
           try {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
@@ -314,26 +343,66 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
             osc.connect(gain).connect(ctx.destination);
             osc.start();
             osc.stop(ctx.currentTime + 0.02);
-          } catch {}
+            addDebugLog('🔇 Silent oscillator created and played');
+          } catch (error) {
+            addDebugLog(`❌ Silent oscillator failed: ${error}`);
+          }
         }
+
+        addDebugLog('✅ Force unmute process completed');
+      } else {
+        addDebugLog('❌ Window not available');
       }
-      const audioEl = audioRef.current;
-      if (audioEl) {
-        audioEl.muted = false;
-        audioEl.volume = 1;
-        try { audioEl.setAttribute('playsinline', 'true'); } catch {}
-        void audioEl.play().catch(() => {});
+    } catch (error) {
+      addDebugLog(`❌ Force unmute error: ${error}`);
+    }
+  }
+
+  // Play audio using Web Audio API for better iOS compatibility
+  async function playAudioBuffer(audioBuffer: AudioBuffer) {
+    if (!audioCtxRef.current) {
+      addDebugLog('❌ No AudioContext available for Web Audio playback');
+      return false;
+    }
+
+    try {
+      const ctx = audioCtxRef.current;
+      addDebugLog(`🎛️ Playing through Web Audio API, context state: ${ctx.state}`);
+
+      if (ctx.state !== 'running') {
+        await ctx.resume();
+        addDebugLog('✅ AudioContext resumed for playback');
       }
-      const sentenceEl = sentenceAudioRef.current;
-      if (sentenceEl) {
-        sentenceEl.muted = false;
-        sentenceEl.volume = 1;
-        try { sentenceEl.setAttribute('playsinline', 'true'); } catch {}
-        void sentenceEl.play().catch(() => {});
-      }
-      setAudioStatus("Upplåst ljud");
-      setTimeout(() => setAudioStatus(null), 1500);
-    } catch {}
+
+      const source = ctx.createBufferSource();
+      const gainNode = ctx.createGain();
+
+      source.buffer = audioBuffer;
+      gainNode.gain.value = 1; // Use full volume for chat
+
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      source.start(0);
+      addDebugLog('▶️ Web Audio playback started successfully');
+
+      return new Promise<boolean>((resolve) => {
+        // Handle errors through a timeout since AudioBufferSourceNode doesn't have onerror
+        const timeout = setTimeout(() => {
+          addDebugLog('⚠️ Web Audio playback timeout - assuming success');
+          resolve(true);
+        }, 10000); // 10 second timeout
+
+        source.onended = () => {
+          clearTimeout(timeout);
+          addDebugLog('✅ Web Audio playback completed');
+          resolve(true);
+        };
+      });
+    } catch (error) {
+      addDebugLog(`❌ Web Audio playback error: ${error}`);
+      return false;
+    }
   }
 
   // iOS: On first user tap anywhere, try to unlock audio once automatically
@@ -428,6 +497,33 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
   }
 
   async function playAudioUrl(url: string): Promise<void> {
+    addDebugLog(`🎵 Starting audio playback for URL: ${url.substring(0, 50)}...`);
+
+    // Try Web Audio API first (better for iOS), fallback to HTML Audio
+    if (audioCtxRef.current && audioUnlocked) {
+      addDebugLog('🎛️ Attempting Web Audio API playback for chat...');
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        const audioBuffer = await audioCtxRef.current.decodeAudioData(arrayBuffer);
+        addDebugLog('✅ Chat audio decoded to AudioBuffer');
+
+        const success = await playAudioBuffer(audioBuffer);
+        if (success) {
+          URL.revokeObjectURL(url);
+          if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; }
+          return; // Successfully played via Web Audio
+        } else {
+          addDebugLog('⚠️ Web Audio failed, falling back to HTML Audio');
+        }
+      } catch (error) {
+        addDebugLog(`⚠️ Web Audio decode/playback failed: ${error}, falling back to HTML Audio`);
+      }
+    }
+
+    // Fallback to HTML Audio element
+    addDebugLog('🔊 Falling back to HTML Audio element for chat');
     const audio = new Audio(url);
     sentenceAudioRef.current?.pause?.();
     sentenceAudioRef.current = audio;
@@ -594,6 +690,33 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
                 setAudioStatus("Spelar…");
                 const qs = new URLSearchParams({ provider: "elevenlabs", text: assistantText });
                 const url = `/api/tts?${qs.toString()}`;
+
+                addDebugLog(`🎵 Starting ElevenLabs audio playback for URL: ${url}`);
+
+                // Try Web Audio API first (better for iOS), fallback to HTML Audio
+                if (audioCtxRef.current && audioUnlocked) {
+                  addDebugLog('🎛️ Attempting Web Audio API playback for ElevenLabs...');
+                  try {
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    const arrayBuffer = await blob.arrayBuffer();
+                    const audioBuffer = await audioCtxRef.current.decodeAudioData(arrayBuffer);
+                    addDebugLog('✅ ElevenLabs audio decoded to AudioBuffer');
+
+                    const success = await playAudioBuffer(audioBuffer);
+                    if (success) {
+                      if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; }
+                      return; // Successfully played via Web Audio
+                    } else {
+                      addDebugLog('⚠️ Web Audio failed, falling back to HTML Audio');
+                    }
+                  } catch (error) {
+                    addDebugLog(`⚠️ Web Audio decode/playback failed: ${error}, falling back to HTML Audio`);
+                  }
+                }
+
+                // Fallback to HTML Audio element
+                addDebugLog('🔊 Falling back to HTML Audio element for ElevenLabs');
                 const audio = new Audio(url);
                 sentenceAudioRef.current?.pause?.();
                 sentenceAudioRef.current = audio;
