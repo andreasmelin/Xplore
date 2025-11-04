@@ -233,15 +233,11 @@ export default function SentenceTracing({
       return;
     }
 
-    // Only force unmute if we haven't unlocked audio yet
-    if (!audioUnlocked) {
-      addSentenceDebugLog('🔊 Force unmute before word TTS (first time)');
-      forceUnmute();
-      // Add a small delay to allow unlocking to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
-    } else {
-      addSentenceDebugLog('ℹ️ Audio already unlocked, skipping force unmute');
-    }
+    // Always force unmute for each word to ensure iOS compatibility
+    addSentenceDebugLog('🔊 Force unmute before every word TTS');
+    forceUnmute();
+    // Add a small delay to allow unlocking to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
       const word = words[wordIndex];
@@ -853,21 +849,28 @@ export default function SentenceTracing({
               
               // Move to next character (letter-by-letter within a word)
               if (isLastChar) {
-                // All letters complete - play sentence TTS immediately
-                addSentenceDebugLog('🎯 Sentence completed - playing TTS immediately');
-                playSentenceTTS();
-                
-                setShowCelebration(true);
-                if (profileId) {
-                  const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
-                  logLetterPractice(profileId, sentence, true, durationSeconds).catch(err => {
-                    console.error('Failed to log sentence practice:', err);
-                  });
-                }
-                setTimeout(() => {
-                  setShowCelebration(false);
-                  onComplete();
-                }, 3000); // Increased to allow TTS to finish
+                // All letters complete - add pause then play sentence TTS
+                addSentenceDebugLog('🎯 Sentence completed - waiting 2 seconds before sentence TTS');
+
+                // Add 2-second pause between last word and full sentence
+                setTimeout(async () => {
+                  addSentenceDebugLog('🎯 Now playing full sentence TTS after pause');
+                  await playSentenceTTS();
+
+                  setShowCelebration(true);
+                  if (profileId) {
+                    const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+                    logLetterPractice(profileId, sentence, true, durationSeconds).catch(err => {
+                      console.error('Failed to log sentence practice:', err);
+                    });
+                  }
+
+                  // Wait for sentence TTS to complete before showing mode cards
+                  setTimeout(() => {
+                    setShowCelebration(false);
+                    onComplete();
+                  }, 5000); // Allow time for sentence TTS to finish
+                }, 2000);
               } else if (!wordComplete) {
                 // Only advance letter-by-letter if word is not complete
                 setTimeout(() => {
