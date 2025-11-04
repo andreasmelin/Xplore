@@ -294,7 +294,7 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
   }
 
   // Force unmute function with Web Audio API focus
-  function forceUnmute() {
+  async function forceUnmute(): Promise<void> {
     try {
       addDebugLog('🔊 FORCE_UNMUTE: Starting chat force unmute');
 
@@ -324,12 +324,9 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
         if (ctx) {
           addDebugLog(`🎚️ AudioContext state before: ${ctx.state}`);
           if (ctx.state !== 'running') {
-            void ctx.resume().then(() => {
-              addDebugLog('✅ AudioContext resumed successfully');
-              setAudioUnlocked(true);
-            }).catch((error) => {
-              addDebugLog(`❌ AudioContext resume failed: ${error}`);
-            });
+            await ctx.resume();
+            addDebugLog('✅ AudioContext resumed successfully');
+            setAudioUnlocked(true);
           } else {
             addDebugLog('ℹ️ AudioContext already running');
             setAudioUnlocked(true);
@@ -623,7 +620,7 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
     
     // Force unmute on first user input to unlock audio for entire session
     if (!hasInteractedRef.current) {
-      forceUnmute();
+      await forceUnmute();
       hasInteractedRef.current = true;
     }
 
@@ -668,7 +665,7 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
 
       // Force unmute before audio playback
       if (assistantText && ttsOn) {
-        forceUnmute();
+        await forceUnmute();
         try {
           if (ttsProvider === "openai-rest") {
             setShowMagic(true);
