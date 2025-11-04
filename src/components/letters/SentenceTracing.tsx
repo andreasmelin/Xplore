@@ -49,6 +49,7 @@ export default function SentenceTracing({
   const traceableChars = characters.filter((char) => char !== " " && char !== "\u00A0");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedIndices, setCompletedIndices] = useState<Set<number>>(new Set());
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
   const [isSoundEnabled, setIsSoundEnabled] = useState(initialSoundEnabled);
   const [volume, setVolume] = useState(initialVolume);
@@ -219,6 +220,17 @@ export default function SentenceTracing({
       }
     });
   }, [characters, initializeCharacter]);
+
+  // Check if current word is completed and move to next word
+  useEffect(() => {
+    const currentWord = words[currentWordIndex];
+    if (currentWord && currentWord.charIndices.every(idx => completedIndices.has(idx))) {
+      // Current word is completed, move to next word
+      if (currentWordIndex < words.length - 1) {
+        setCurrentWordIndex(currentWordIndex + 1);
+      }
+    }
+  }, [completedIndices, currentWordIndex, words]);
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -798,50 +810,53 @@ export default function SentenceTracing({
           <div className="mb-6 text-center">
             <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg px-6 py-3 inline-block">
               <div className="text-sm text-gray-600">
-                Bokstav {currentIndex + 1} av {traceableChars.length}
+                Ord {currentWordIndex + 1} av {words.length} • Bokstav {currentIndex + 1} av {traceableChars.length}
               </div>
             </div>
           </div>
 
-          {/* Word grid - single row */}
-          <div className="flex justify-center items-center overflow-x-auto">
-            <div className="flex justify-center gap-4" style={{ minWidth: "max-content" }}>
-              {words.map((word, wordIndex) => {
-                const hasActiveLetter = word.charIndices.includes(currentCharIndex);
-                const allCompleted = word.charIndices.every(idx => completedIndices.has(idx));
+          {/* Current Word Display */}
+          <div className="flex justify-center items-center">
+            <div className="flex justify-center gap-4">
+              {(() => {
+                const currentWord = words[currentWordIndex];
+                if (!currentWord) return null;
+
+                const hasActiveLetter = currentWord.charIndices.includes(currentCharIndex);
+                const allCompleted = currentWord.charIndices.every(idx => completedIndices.has(idx));
 
                 return (
                   <div
-                    key={`word-${wordIndex}`}
+                    key={`word-${currentWordIndex}`}
                     className={`relative flex flex-col items-center ${
                       hasActiveLetter ? "ring-2 ring-yellow-400 ring-offset-1 rounded-lg" : ""
                     } ${allCompleted ? "opacity-80" : ""}`}
                   >
                     {/* Word label */}
-                    <div className={`text-sm font-bold mb-1 ${
-                      allCompleted ? "text-green-600" : hasActiveLetter ? "text-yellow-400" : "text-gray-400"
+                    <div className={`text-lg font-bold mb-2 ${
+                      allCompleted ? "text-green-600" : hasActiveLetter ? "text-yellow-400" : "text-gray-600"
                     }`}>
-                      {word.chars.join("")}
+                      {currentWord.chars.join("")}
                     </div>
                     {/* Canvas */}
                     <canvas
                       ref={(el) => {
-                        if (el) canvasRefs.current.set(wordIndex, el);
+                        if (el) canvasRefs.current.set(currentWordIndex, el);
                       }}
-                      width={word.canvasWidth}
+                      width={currentWord.canvasWidth}
                       height={CANVAS_HEIGHT}
-                      onPointerDown={(e) => handlePointerDown(wordIndex, e)}
-                      onPointerMove={(e) => handlePointerMove(wordIndex, e)}
-                      onPointerUp={() => handlePointerUp(wordIndex)}
-                      onPointerLeave={() => handlePointerUp(wordIndex)}
+                      onPointerDown={(e) => handlePointerDown(currentWordIndex, e)}
+                      onPointerMove={(e) => handlePointerMove(currentWordIndex, e)}
+                      onPointerUp={() => handlePointerUp(currentWordIndex)}
+                      onPointerLeave={() => handlePointerUp(currentWordIndex)}
                       className={`bg-white/90 rounded-lg shadow-lg cursor-crosshair touch-none ${
                         hasActiveLetter ? "ring-1 ring-yellow-400" : ""
                       }`}
-                      style={{ width: word.canvasWidth, height: CANVAS_HEIGHT }}
+                      style={{ width: currentWord.canvasWidth, height: CANVAS_HEIGHT }}
                     />
                   </div>
                 );
-              })}
+              })()}
             </div>
           </div>
         </div>
