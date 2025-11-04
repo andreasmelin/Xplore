@@ -584,27 +584,28 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
                 sentenceAudioRef.current?.pause?.();
                 sentenceAudioRef.current = audio;
                 await new Promise<void>((resolve) => {
+                  const log = addDebugLog; // Capture function in closure
                   audio.onended = () => {
-                    addDebugLog('✅ Audio playback ended successfully');
+                    log('✅ Audio playback ended successfully');
                     resolve();
                   };
                   audio.onerror = () => {
-                    addDebugLog('❌ Audio playback error');
+                    log('❌ Audio playback error');
                     resolve();
                   };
                   audio.onplay = () => {
-                    addDebugLog('▶️ Audio started playing');
+                    log('▶️ Audio started playing');
                     if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; }
                   };
                   void audio.play().then(() => {
-                    addDebugLog('✅ Audio play promise resolved');
+                    log('✅ Audio play promise resolved');
                   }).catch((err) => {
-                    addDebugLog(`❌ Audio play failed: ${err}`);
+                    log(`❌ Audio play failed: ${err}`);
                     // If audio fails, try one more time after a brief delay
                     setTimeout(() => {
-                      addDebugLog('🔄 Retrying audio play...');
+                      log('🔄 Retrying audio play...');
                       void audio.play().catch((retryErr) => {
-                        addDebugLog(`❌ Audio retry also failed: ${retryErr}`);
+                        log(`❌ Audio retry also failed: ${retryErr}`);
                       });
                     }, 100);
                     setShowMagic(false);
