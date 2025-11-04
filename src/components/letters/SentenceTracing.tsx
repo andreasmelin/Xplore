@@ -198,7 +198,6 @@ export default function SentenceTracing({
   };
 
   const currentCharIndex = getCurrentTraceableIndex();
-  const currentChar = currentCharIndex >= 0 ? characters[currentCharIndex] : "";
   const isLastChar = currentIndex >= traceableChars.length - 1;
 
   // Initialize stroke progress for a character
@@ -411,7 +410,7 @@ export default function SentenceTracing({
 
       ctx.restore();
     });
-  }, [characters, currentCharIndex, completedIndices]);
+  }, [currentCharIndex, completedIndices]);
 
   // Redraw all word canvases
   useEffect(() => {

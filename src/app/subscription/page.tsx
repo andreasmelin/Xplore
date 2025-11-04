@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
 import { PLANS } from "@/lib/stripe/client";

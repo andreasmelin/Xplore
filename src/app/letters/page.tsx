@@ -10,7 +10,6 @@ import DualLetterTracing from "@/components/letters/DualLetterTracing";
 import SentenceInput from "@/components/letters/SentenceInput";
 import SentenceTracing from "@/components/letters/SentenceTracing";
 import ModeCard from "@/components/modes/ModeCard";
-import HomeButton from "@/components/navigation/HomeButton";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };

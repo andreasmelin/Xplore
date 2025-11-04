@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
 import AddProfileModal from "@/components/profile/AddProfileModal";
