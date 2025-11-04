@@ -721,9 +721,15 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
         </div>
       </form>
 
-      {/* Audio Indicator - Always Visible */}
+      {/* Audio Indicator - Clickable for Force Unmute */}
       <div className="mb-4 flex items-center gap-3">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg">
+        <button
+          type="button"
+          onClick={() => forceUnmute()}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all cursor-pointer"
+          aria-label="Aktivera ljud för Sinus"
+          title="Klicka för att aktivera ljud om det inte fungerar"
+        >
           <Image
             src="/logos/sinus-logo-1024px.png"
             alt="Sinus"
@@ -733,7 +739,7 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
           />
           <span className="text-xl">🔊</span>
           <span className="text-sm font-semibold">Sinus pratar</span>
-        </div>
+        </button>
       </div>
 
       {/* Messages */}
