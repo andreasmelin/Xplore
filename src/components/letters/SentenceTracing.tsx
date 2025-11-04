@@ -221,16 +221,6 @@ export default function SentenceTracing({
     });
   }, [characters, initializeCharacter]);
 
-  // Check if current word is completed and move to next word
-  useEffect(() => {
-    const currentWord = words[currentWordIndex];
-    if (currentWord && currentWord.charIndices.every(idx => completedIndices.has(idx))) {
-      // Current word is completed, move to next word
-      if (currentWordIndex < words.length - 1) {
-        setCurrentWordIndex(currentWordIndex + 1);
-      }
-    }
-  }, [completedIndices, currentWordIndex, words]);
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -570,22 +560,24 @@ export default function SentenceTracing({
               // Play sound
               playCompletionSound();
               
-              // Check if word is complete
-              const currentWord = words[wordIndex];
+              // Check if current word is complete
+              const currentWord = words[currentWordIndex];
               const wordComplete = currentWord.charIndices.every(idx => newCompletedIndices.has(idx));
-              
-              if (wordComplete && !completedWordsRef.current.has(wordIndex)) {
-                completedWordsRef.current.add(wordIndex);
-                
+
+              if (wordComplete && !completedWordsRef.current.has(currentWordIndex)) {
+                completedWordsRef.current.add(currentWordIndex);
+
                 // Play word TTS after a short delay
                 setTimeout(() => {
-                  playWordTTS(wordIndex);
+                  playWordTTS(currentWordIndex);
                 }, 300);
-                
+
                 // Move to next word if not the last word
-                if (wordIndex < words.length - 1) {
-                  const nextWord = words[wordIndex + 1];
+                if (currentWordIndex < words.length - 1) {
+                  const nextWordIndex = currentWordIndex + 1;
+                  const nextWord = words[nextWordIndex];
                   const nextCharIndex = nextWord.charIndices[0];
+
                   // Convert character index to traceable index
                   let traceableIndex = 0;
                   for (let i = 0; i < nextCharIndex; i++) {
@@ -593,8 +585,9 @@ export default function SentenceTracing({
                       traceableIndex++;
                     }
                   }
-                  
+
                   setTimeout(() => {
+                    setCurrentWordIndex(nextWordIndex);
                     setCurrentIndex(traceableIndex);
                   }, 600);
                   return; // Skip the normal letter-by-letter advancement
