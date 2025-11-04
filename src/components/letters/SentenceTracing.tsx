@@ -174,13 +174,16 @@ export default function SentenceTracing({
       addSentenceDebugLog('▶️ Web Audio playback started successfully');
 
       return new Promise<boolean>((resolve) => {
+        // Handle errors through a timeout since AudioBufferSourceNode doesn't have onerror
+        const timeout = setTimeout(() => {
+          addSentenceDebugLog('⚠️ Web Audio playback timeout - assuming success');
+          resolve(true);
+        }, 10000); // 10 second timeout
+
         source.onended = () => {
+          clearTimeout(timeout);
           addSentenceDebugLog('✅ Web Audio playback completed');
           resolve(true);
-        };
-        source.onerror = (error) => {
-          addSentenceDebugLog(`❌ Web Audio playback failed: ${error}`);
-          resolve(false);
         };
       });
     } catch (error) {
