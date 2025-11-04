@@ -19,6 +19,8 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
 
   const [input, setInput] = useState("");
   const [showDebug, setShowDebug] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [chat, setChat] = useState<{ id: string; role: "user" | "assistant"; text: string }[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
@@ -582,20 +584,32 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
                 sentenceAudioRef.current?.pause?.();
                 sentenceAudioRef.current = audio;
                 await new Promise<void>((resolve) => {
-                  audio.onended = () => { resolve(); };
-                  audio.onerror = () => { resolve(); };
-                  audio.onplay = () => { if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; } };
-                  void audio.play().catch((err) => { 
+                  audio.onended = () => {
+                    addDebugLog('✅ Audio playback ended successfully');
+                    resolve();
+                  };
+                  audio.onerror = () => {
+                    addDebugLog('❌ Audio playback error');
+                    resolve();
+                  };
+                  audio.onplay = () => {
+                    addDebugLog('▶️ Audio started playing');
+                    if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; }
+                  };
+                  void audio.play().then(() => {
+                    addDebugLog('✅ Audio play promise resolved');
+                  }).catch((err) => {
+                    addDebugLog(`❌ Audio play failed: ${err}`);
                     // If audio fails, try one more time after a brief delay
-                    console.log("Audio play failed, retrying:", err);
                     setTimeout(() => {
-                      void audio.play().catch(() => {
-                        console.log("Audio still failed after retry");
+                      addDebugLog('🔄 Retrying audio play...');
+                      void audio.play().catch((retryErr) => {
+                        addDebugLog(`❌ Audio retry also failed: ${retryErr}`);
                       });
                     }, 100);
-                    setShowMagic(false); 
-                    overlayClearedRef.current = true; 
-                    resolve(); 
+                    setShowMagic(false);
+                    overlayClearedRef.current = true;
+                    resolve();
                   });
                 });
                 if (playbackTokenRef.current === tokenAtStart) setAudioStatus(null);
@@ -812,11 +826,44 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
       </button>
       <button
         type="button"
+        onClick={() => setShowDebugPanel((v) => !v)}
+        className="fixed bottom-4 right-4 z-50 text-xs rounded-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white shadow-lg border-2 border-white"
+      >
+        {showDebugPanel ? "Hide Logs" : "Show Logs"} 📋
+      </button>
+      <button
+        type="button"
         onClick={() => setShowDebug((v) => !v)}
-        className="fixed bottom-4 right-4 z-50 text-xs rounded-full px-4 py-2 bg-white/90 hover:bg-white text-gray-700 shadow"
+        className="fixed bottom-16 right-4 z-50 text-xs rounded-full px-4 py-2 bg-white/90 hover:bg-white text-gray-700 shadow"
       >
         {showDebug ? "Hide Debug" : "Debug"} 🔎
       </button>
+
+      {/* Debug Panel */}
+      {showDebugPanel ? (
+        <div className="fixed bottom-20 left-4 right-20 z-50 max-h-80 overflow-y-auto rounded-2xl bg-black/90 text-green-400 p-4 shadow-xl border border-gray-600 font-mono text-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-bold">🔊 Audio Debug Logs</span>
+            <button
+              onClick={() => setDebugLogs([])}
+              className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 rounded"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="space-y-1">
+            {debugLogs.length === 0 ? (
+              <div className="text-gray-500 italic">No logs yet. Send a message to generate audio logs.</div>
+            ) : (
+              debugLogs.map((log, index) => (
+                <div key={index} className="whitespace-pre-wrap break-words">
+                  {log}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {showSetup ? (
         <div className="fixed bottom-28 right-4 z-50 w-[320px] rounded-2xl bg-white p-4 shadow-xl border border-gray-200">

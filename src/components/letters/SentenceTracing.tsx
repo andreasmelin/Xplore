@@ -65,22 +65,59 @@ export default function SentenceTracing({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
+  // Debug logging for sentence tracing
+  const sentenceDebugLogs = useRef<string[]>([]);
+  const [showSentenceDebug, setShowSentenceDebug] = useState(false);
+
+  const addSentenceDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    sentenceDebugLogs.current.push(logEntry);
+    if (sentenceDebugLogs.current.length > 50) {
+      sentenceDebugLogs.current = sentenceDebugLogs.current.slice(-50);
+    }
+  };
+
   // Force unmute function (similar to chat interface)
   function forceUnmute() {
     try {
+      addSentenceDebugLog('🔊 FORCE_UNMUTE: Starting sentence tracing force unmute');
+
       if (typeof window !== 'undefined') {
+        // Detect device/browser
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        addSentenceDebugLog(`📱 Device: ${isIOS ? 'iOS' : 'Other'}, Browser: ${isSafari ? 'Safari' : 'Other'}`);
+
         if (!audioCtxRef.current) {
           try {
             const w = window as unknown as { webkitAudioContext?: typeof AudioContext };
             const Ctor = w.webkitAudioContext ?? window.AudioContext;
-            if (Ctor) audioCtxRef.current = new Ctor();
-          } catch {}
+            if (Ctor) {
+              audioCtxRef.current = new Ctor();
+              addSentenceDebugLog(`🎵 AudioContext created: ${Ctor.name}`);
+            } else {
+              addSentenceDebugLog('❌ No AudioContext constructor available');
+            }
+          } catch (error) {
+            addSentenceDebugLog(`❌ AudioContext creation failed: ${error}`);
+          }
         }
+
         const ctx = audioCtxRef.current;
-        if (ctx && ctx.state !== 'running') {
-          void ctx.resume().catch(() => {});
-        }
         if (ctx) {
+          addSentenceDebugLog(`🎚️ AudioContext state before: ${ctx.state}`);
+          if (ctx.state !== 'running') {
+            void ctx.resume().then(() => {
+              addSentenceDebugLog('✅ AudioContext resumed successfully');
+            }).catch((error) => {
+              addSentenceDebugLog(`❌ AudioContext resume failed: ${error}`);
+            });
+          } else {
+            addSentenceDebugLog('ℹ️ AudioContext already running');
+          }
+
+          // Create silent oscillator to unlock audio
           try {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
@@ -88,17 +125,33 @@ export default function SentenceTracing({
             osc.connect(gain).connect(ctx.destination);
             osc.start();
             osc.stop(ctx.currentTime + 0.02);
-          } catch {}
+            addSentenceDebugLog('🔇 Silent oscillator created and played');
+          } catch (error) {
+            addSentenceDebugLog(`❌ Silent oscillator failed: ${error}`);
+          }
         }
+
+        const audioEl = audioRef.current;
+        if (audioEl) {
+          audioEl.muted = false;
+          audioEl.volume = volume;
+          try { audioEl.setAttribute('playsinline', 'true'); } catch {}
+          addSentenceDebugLog(`🔊 Audio element configured: volume=${volume}, muted=${audioEl.muted}`);
+
+          void audioEl.play().catch((error) => {
+            addSentenceDebugLog(`❌ Audio element play failed: ${error}`);
+          });
+        } else {
+          addSentenceDebugLog('⚠️ No audio element found');
+        }
+
+        addSentenceDebugLog('✅ Force unmute process completed');
+      } else {
+        addSentenceDebugLog('❌ Window not available');
       }
-      const audioEl = audioRef.current;
-      if (audioEl) {
-        audioEl.muted = false;
-        audioEl.volume = volume;
-        try { audioEl.setAttribute('playsinline', 'true'); } catch {}
-        void audioEl.play().catch(() => {});
-      }
-    } catch {}
+    } catch (error) {
+      addSentenceDebugLog(`❌ Force unmute error: ${error}`);
+    }
   }
 
   // Parse sentence into words
@@ -136,20 +189,22 @@ export default function SentenceTracing({
   // Get current traceable character index
   // TTS functions
   const playWordTTS = async (wordIndex: number) => {
-    console.log('playWordTTS called with wordIndex:', wordIndex, 'isSoundEnabled:', isSoundEnabled);
+    addSentenceDebugLog(`🎤 WORD_TTS: Starting word ${wordIndex}, sound enabled: ${isSoundEnabled}`);
     if (!isSoundEnabled) {
-      console.log('Sound is disabled, skipping TTS');
+      addSentenceDebugLog('🔇 Sound is disabled, skipping word TTS');
       return;
     }
 
     // Force unmute before playing TTS
+    addSentenceDebugLog('🔊 Force unmute before word TTS');
     forceUnmute();
 
     try {
       const word = words[wordIndex];
       const wordText = word.chars.join('');
-      console.log('Playing word TTS:', wordText);
+      addSentenceDebugLog(`📝 Playing word TTS: "${wordText}"`);
 
+      addSentenceDebugLog('🌐 Making TTS API request...');
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -160,32 +215,47 @@ export default function SentenceTracing({
         }),
       });
 
+      addSentenceDebugLog(`📡 TTS API response: ${response.status} ${response.statusText}`);
+
       if (response.ok) {
+        addSentenceDebugLog('✅ TTS API response OK, processing audio blob...');
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-        
+        addSentenceDebugLog(`🎵 Audio blob created, URL: ${url.substring(0, 50)}...`);
+
         if (audioRef.current) {
           audioRef.current.pause();
+          addSentenceDebugLog('⏸️ Previous audio paused');
         }
-        
+
         const audio = new Audio(url);
         audio.volume = volume;
         audioRef.current = audio;
-        
+        addSentenceDebugLog(`🔊 Audio element created with volume: ${volume}`);
+
         audio.onended = () => {
+          addSentenceDebugLog('✅ Word audio playback completed');
           URL.revokeObjectURL(url);
         };
-        
+
+        audio.onerror = () => {
+          addSentenceDebugLog('❌ Word audio playback error');
+        };
+
         // iOS-friendly play with promise handling
-        console.log('Attempting to play word audio, volume:', volume);
+        addSentenceDebugLog('▶️ Attempting to play word audio...');
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
-            console.log('Word audio started playing successfully');
+            addSentenceDebugLog('✅ Word audio started playing successfully');
           }).catch((error) => {
-            console.log('Word TTS play prevented:', error);
+            addSentenceDebugLog(`❌ Word audio play prevented: ${error}`);
           });
+        } else {
+          addSentenceDebugLog('⚠️ Audio play returned undefined (should not happen)');
         }
+      } else {
+        addSentenceDebugLog(`❌ TTS API failed: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error('TTS error:', error);
@@ -193,17 +263,20 @@ export default function SentenceTracing({
   };
 
   const playSentenceTTS = async () => {
-    console.log('playSentenceTTS called, isSoundEnabled:', isSoundEnabled);
+    addSentenceDebugLog(`🎤 SENTENCE_TTS: Starting full sentence, sound enabled: ${isSoundEnabled}`);
     if (!isSoundEnabled) {
-      console.log('Sound is disabled, skipping sentence TTS');
+      addSentenceDebugLog('🔇 Sound is disabled, skipping sentence TTS');
       return;
     }
 
     // Force unmute before playing TTS
+    addSentenceDebugLog('🔊 Force unmute before sentence TTS');
     forceUnmute();
 
     try {
-      console.log('Playing sentence TTS:', sentence);
+      addSentenceDebugLog(`📝 Playing full sentence TTS: "${sentence}"`);
+
+      addSentenceDebugLog('🌐 Making sentence TTS API request...');
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -214,32 +287,47 @@ export default function SentenceTracing({
         }),
       });
 
+      addSentenceDebugLog(`📡 Sentence TTS API response: ${response.status} ${response.statusText}`);
+
       if (response.ok) {
+        addSentenceDebugLog('✅ Sentence TTS API response OK, processing audio blob...');
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-        
+        addSentenceDebugLog(`🎵 Sentence audio blob created, URL: ${url.substring(0, 50)}...`);
+
         if (audioRef.current) {
           audioRef.current.pause();
+          addSentenceDebugLog('⏸️ Previous sentence audio paused');
         }
-        
+
         const audio = new Audio(url);
         audio.volume = volume;
         audioRef.current = audio;
-        
+        addSentenceDebugLog(`🔊 Sentence audio element created with volume: ${volume}`);
+
         audio.onended = () => {
+          addSentenceDebugLog('✅ Sentence audio playback completed');
           URL.revokeObjectURL(url);
         };
-        
+
+        audio.onerror = () => {
+          addSentenceDebugLog('❌ Sentence audio playback error');
+        };
+
         // iOS-friendly play with promise handling
-        console.log('Attempting to play sentence audio, volume:', volume);
+        addSentenceDebugLog('▶️ Attempting to play sentence audio...');
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
-            console.log('Sentence audio started playing successfully');
+            addSentenceDebugLog('✅ Sentence audio started playing successfully');
           }).catch((error) => {
-            console.log('Sentence TTS play prevented:', error);
+            addSentenceDebugLog(`❌ Sentence audio play prevented: ${error}`);
           });
+        } else {
+          addSentenceDebugLog('⚠️ Sentence audio play returned undefined (should not happen)');
         }
+      } else {
+        addSentenceDebugLog(`❌ Sentence TTS API failed: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error('TTS error:', error);
@@ -851,6 +939,42 @@ export default function SentenceTracing({
           </div>
         </div>
       </header>
+
+      {/* Debug Panel */}
+      {showSentenceDebug ? (
+        <div className="fixed top-20 left-4 right-4 z-50 max-h-60 overflow-y-auto rounded-2xl bg-black/90 text-green-400 p-4 shadow-xl border border-gray-600 font-mono text-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-bold">🔊 Sentence Tracing Debug Logs</span>
+            <button
+              onClick={() => setShowSentenceDebug(false)}
+              className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 rounded"
+            >
+              Close
+            </button>
+          </div>
+          <div className="space-y-1">
+            {sentenceDebugLogs.current.length === 0 ? (
+              <div className="text-gray-500 italic">No logs yet. Complete a word to generate logs.</div>
+            ) : (
+              sentenceDebugLogs.current.map((log, index) => (
+                <div key={index} className="whitespace-pre-wrap break-words">
+                  {log}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Debug Toggle Button */}
+      {!showSentenceDebug && (
+        <button
+          onClick={() => setShowSentenceDebug(true)}
+          className="fixed top-20 right-4 z-50 text-xs rounded-full px-3 py-2 bg-red-500 hover:bg-red-600 text-white shadow-lg border-2 border-white"
+        >
+          Debug 📋
+        </button>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 p-6 overflow-auto">
