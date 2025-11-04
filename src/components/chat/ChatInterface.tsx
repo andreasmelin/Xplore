@@ -21,6 +21,20 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
   const [showDebug, setShowDebug] = useState(false);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const debugLogsRef = useRef<string[]>([]);
+
+  // Add debug log helper
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    debugLogsRef.current.push(logEntry);
+    setDebugLogs([...debugLogsRef.current]);
+    // Keep only last 50 logs
+    if (debugLogsRef.current.length > 50) {
+      debugLogsRef.current = debugLogsRef.current.slice(-50);
+    }
+  };
+
   const [chat, setChat] = useState<{ id: string; role: "user" | "assistant"; text: string }[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
