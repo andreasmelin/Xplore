@@ -581,14 +581,16 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
                   audio.onerror = () => { resolve(); };
                   audio.onplay = () => { if (!overlayClearedRef.current) { setShowMagic(false); overlayClearedRef.current = true; } };
                   void audio.play().catch((err) => { 
-                    // Only show unlock button on first interaction
-                    if (!hasInteractedRef.current) {
-                      setNeedsAudioUnlock(true); 
-                      setAudioStatus("Tryck 'Aktivera ljud'"); 
-                    } else {
-                      // After first interaction, just try again silently
-                      console.log("Audio play failed:", err);
-                    }
+                    // Auto force unmute and retry
+                    console.log("Audio play failed, auto-unmuting:", err);
+                    forceUnmute();
+                    hasInteractedRef.current = true;
+                    // Try playing again after unmute
+                    setTimeout(() => {
+                      void audio.play().catch(() => {
+                        console.log("Audio still failed after unmute");
+                      });
+                    }, 100);
                     setShowMagic(false); 
                     overlayClearedRef.current = true; 
                     resolve(); 
