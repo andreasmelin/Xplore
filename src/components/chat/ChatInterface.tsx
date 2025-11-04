@@ -717,6 +717,23 @@ export default function ChatInterface({ activeProfile, onNeedLogin }: ChatInterf
         </div>
       </form>
 
+      {/* Audio Toggle Button - Always Visible */}
+      <div className="mb-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setTtsOn((v) => !v)}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all ${
+            ttsOn 
+              ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700" 
+              : "bg-gray-400 text-white hover:bg-gray-500"
+          }`}
+          aria-label={ttsOn ? "Stäng av ljud" : "Sätt på ljud"}
+        >
+          <span className="text-xl">{ttsOn ? "🔊" : "🔇"}</span>
+          <span>{ttsOn ? "Ljud: På" : "Ljud: Av"}</span>
+        </button>
+      </div>
+
       {/* Messages */}
       <div className="space-y-3 mb-5">
         {audioStatus ? (
