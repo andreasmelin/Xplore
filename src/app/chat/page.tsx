@@ -5,7 +5,6 @@ import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
 import AddProfileModal from "@/components/profile/AddProfileModal";
 import ChatInterface from "@/components/chat/ChatInterface";
-import Link from "next/link";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -20,6 +19,7 @@ export default function ChatPage() {
   const [addProfileOpen, setAddProfileOpen] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ttsVolume, setTtsVolume] = useState(0.7);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function init() {
@@ -54,6 +54,8 @@ export default function ChatPage() {
         if (!me) setLoginOpen(true);
       } catch {
         // ignore
+      } finally {
+        setIsLoading(false);
       }
       
       // Load global audio settings
@@ -136,7 +138,7 @@ export default function ChatPage() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col relative">
         <AppHeader
           user={user}
           profiles={profiles}
@@ -150,29 +152,11 @@ export default function ChatPage() {
           ttsVolume={ttsVolume}
           onTtsToggle={handleTtsToggle}
           onVolumeChange={handleVolumeChange}
+          isLoading={isLoading}
         />
 
-        <main className="flex-1 pb-10">
+        <main className="flex-1 pb-10 pt-24">
           <div className="mx-auto max-w-3xl p-6">
-            {/* Back link */}
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-indigo-100/80 hover:text-indigo-100 mb-4 transition-colors text-sm"
-            >
-              <span>←</span>
-              <span>Tillbaka till startsidan</span>
-            </Link>
-
-            {/* Title */}
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
-                Prata med Sinus 💬
-              </h1>
-              <p className="text-indigo-100/80 text-sm">
-                Ställ frågor och utforska ämnen tillsammans
-              </p>
-            </div>
-
             {/* Chat Interface */}
             {user && activeProfile ? (
               <ChatInterface

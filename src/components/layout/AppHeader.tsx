@@ -22,6 +22,8 @@ type AppHeaderProps = {
   ttsVolume?: number;
   onTtsToggle?: () => void;
   onVolumeChange?: (volume: number) => void;
+  // Loading state
+  isLoading?: boolean;
 };
 
 export default function AppHeader({
@@ -37,6 +39,7 @@ export default function AppHeader({
   ttsVolume = 0.8,
   onTtsToggle,
   onVolumeChange,
+  isLoading = false,
 }: AppHeaderProps) {
   const router = useRouter();
   const activeProfile = profiles.find((p) => p.id === activeProfileId) ?? null;
@@ -48,28 +51,42 @@ export default function AppHeader({
   }
 
   return (
-    <header className="border-b border-white/10 bg-black/20 backdrop-blur-sm">
+    <header className="border-b border-white/10 bg-black/20 backdrop-blur-sm fixed top-0 left-0 right-0 z-50">
       <div className="mx-auto max-w-7xl px-4 py-3">
         <div className="flex items-center justify-between gap-4">
-          {/* Logo & Brand */}
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <Image
-              src="/logos/sinus-logo-1024px.png"
-              alt="Sinus"
-              width={48}
-              height={48}
-              className="h-12 w-12 rounded-xl object-cover shadow-lg"
-            />
-            <div className="hidden sm:block">
-              <div className="text-lg brand-title drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
-                Lär med Sinus
+          {/* Logo & Brand & Home Button */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <Image
+                src="/logos/sinus-logo-1024px.png"
+                alt="Sinus"
+                width={48}
+                height={48}
+                className="h-12 w-12 rounded-xl object-cover shadow-lg"
+              />
+              <div className="hidden sm:block">
+                <div className="text-lg brand-title drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+                  Lär med Sinus
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-white shadow-lg transition-colors"
+              aria-label="Hem"
+              title="Tillbaka till startsidan"
+            >
+              <span className="text-3xl">🏠</span>
+            </Link>
+          </div>
 
           {/* Center - Profile & Quota */}
           <div className="flex flex-1 items-center justify-center gap-3 max-w-md">
-            {user ? (
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-32 bg-white/10 rounded-full animate-pulse"></div>
+              </div>
+            ) : user ? (
               <>
                 {/* Profile Selector */}
                 <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 border border-white/10 shadow">
@@ -106,9 +123,11 @@ export default function AppHeader({
           </div>
 
           {/* Right - Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative z-50">
             {/* TTS Controls - Always visible when callbacks provided */}
-            {onTtsToggle && (
+            {isLoading ? (
+              <div className="h-8 w-32 bg-white/10 rounded-full animate-pulse"></div>
+            ) : onTtsToggle ? (
               <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 border border-white/10 shadow">
                 <button
                   type="button"
@@ -130,9 +149,9 @@ export default function AppHeader({
                   />
                 )}
               </div>
-            )}
+            ) : null}
             
-            {user ? (
+            {!isLoading && user ? (
               <>
                 <button
                   type="button"
@@ -158,7 +177,7 @@ export default function AppHeader({
                   Logga ut
                 </button>
               </>
-            ) : (
+            ) : !isLoading ? (
               <button
                 type="button"
                 onClick={onOpenLogin}
@@ -166,12 +185,12 @@ export default function AppHeader({
               >
                 Logga in
               </button>
-            )}
+            ) : null}
           </div>
         </div>
 
         {/* Mobile quota bar */}
-        {user && quota && (
+        {!isLoading && user && quota && (
           <div className="md:hidden mt-2 flex items-center gap-2">
             <div className="progress-rainbow flex-1" role="progressbar">
               <div className="bar" style={{ width: `${Math.max(0, Math.min(100, Math.round((quota.remaining / Math.max(1, quota.limit)) * 100)))}%` }} />

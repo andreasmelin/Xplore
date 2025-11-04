@@ -10,6 +10,7 @@ import DualLetterTracing from "@/components/letters/DualLetterTracing";
 import SentenceInput from "@/components/letters/SentenceInput";
 import SentenceTracing from "@/components/letters/SentenceTracing";
 import ModeCard from "@/components/modes/ModeCard";
+import HomeButton from "@/components/navigation/HomeButton";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -36,6 +37,7 @@ export default function LettersPage() {
   const [quota, setQuota] = useState<Quota>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [addProfileOpen, setAddProfileOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load user data and audio settings
   useEffect(() => {
@@ -66,6 +68,8 @@ export default function LettersPage() {
         if (limitsJson?.status) setQuota(limitsJson.status);
       } catch {
         // ignore
+      } finally {
+        setIsLoading(false);
       }
       
       // Load audio settings
@@ -211,7 +215,7 @@ export default function LettersPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-red-500 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-red-500 flex flex-col relative">
         <AppHeader
           user={user}
           profiles={profiles}
@@ -225,44 +229,41 @@ export default function LettersPage() {
           ttsVolume={volume}
           onTtsToggle={handleTtsToggle}
           onVolumeChange={handleVolumeChange}
+          isLoading={isLoading}
         />
 
-        {/* Page Title Bar */}
-        <div className="bg-white/10 backdrop-blur-sm border-b border-white/20 p-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <button
-              onClick={() => {
-                if (showModeSelection) {
-                  router.push("/");
-                } else {
-                  setShowModeSelection(true);
-                }
-              }}
-              className="flex items-center gap-2 text-white hover:text-white/80 transition-colors"
-            >
-              <span className="text-2xl">←</span>
-              <span className="text-lg font-semibold">Tillbaka</span>
-            </button>
-            <h1 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-              ✍️ Jobba med Bokstäver
-            </h1>
-            <div className="w-24"></div>
-          </div>
-        </div>
-
         {/* Main Content */}
-        <main className="flex-1 flex flex-col items-center justify-center p-6">
+        <main className="flex-1 flex flex-col p-6 pt-24">
+          {!showModeSelection && (
+            <div className="mb-8">
+              <button
+                onClick={() => {
+                  setShowModeSelection(true);
+                  setSelectedLetter(null);
+                  setIsDualMode(false);
+                  setSentence(null);
+                }}
+                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-500 hover:bg-purple-400 text-white shadow-lg transition-colors"
+                aria-label="Tillbaka"
+                title="Tillbaka till valet"
+              >
+                <span className="text-4xl">←</span>
+              </button>
+            </div>
+          )}
+
           {showModeSelection ? (
             // Mode Selection Screen
-            <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div onClick={() => {
+            <div className="flex-1 flex items-center justify-center">
+              <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div onClick={() => {
                 setShowModeSelection(false);
                 setIsDualMode(false);
                 setSelectedLetter("A"); // Start directly with letter A
               }} className="cursor-pointer">
                 <ModeCard
-                  title="Träna hela alfabetet"
-                  description="Öva på alla bokstäver från A till Ö"
+                  title="Träna på stora bokstäver"
+                  description="Öva på alla bokstäver från A till Ö med stora bokstäver"
                   icon={<span>🔤</span>}
                   href="#"
                   gradient="bg-gradient-to-br from-purple-500 to-pink-500"
@@ -294,17 +295,12 @@ export default function LettersPage() {
                 />
               </div>
             </div>
+            </div>
           ) : (
             // Alphabet Selection Screen
-            <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 drop-shadow-lg">
-                Välj bokstav att öva på! ✍️
-              </h2>
-              <p className="text-xl text-white/90 drop-shadow-md mb-12">
-                Rita med regnbågsfärger och ha kul! 🌈
-              </p>
-              
-              <button
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <button
                 onClick={() => setSelectedLetter("A")}
                 className="px-12 py-6 bg-white text-purple-600 rounded-full text-2xl font-bold
                            hover:bg-white/90 hover:scale-110 active:scale-95
@@ -314,6 +310,7 @@ export default function LettersPage() {
                 <span className="text-4xl">▶</span>
                 <span>Börja med A</span>
               </button>
+              </div>
             </div>
           )}
         </main>

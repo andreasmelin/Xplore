@@ -8,7 +8,6 @@ import TopicBrowser from "@/components/explore/TopicBrowser";
 import LessonList from "@/components/explore/LessonList";
 import LessonViewer from "@/components/explore/LessonViewer";
 import { EXPLORE_TOPICS, Topic, Lesson } from "@/lib/explore/topics-data";
-import Link from "next/link";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -28,6 +27,7 @@ export default function ExplorePage() {
   const [addProfileOpen, setAddProfileOpen] = useState(false);
   const [viewState, setViewState] = useState<ViewState>({ type: "topics" });
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   
   // TTS state - using global audio settings
@@ -89,6 +89,7 @@ export default function ExplorePage() {
       } catch {
         // ignore
       } finally {
+        setIsLoadingAuth(false);
         setIsLoading(false);
       }
     }
@@ -219,7 +220,7 @@ export default function ExplorePage() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col relative">
         <AppHeader
           user={user}
           profiles={profiles}
@@ -233,9 +234,10 @@ export default function ExplorePage() {
           ttsVolume={ttsVolume}
           onTtsToggle={handleTtsToggle}
           onVolumeChange={handleVolumeChange}
+          isLoading={isLoadingAuth}
         />
 
-        <main className="flex-1 px-4 py-8">
+        <main className="flex-1 px-4 py-8 pt-24 relative z-0">
           <div className="mx-auto max-w-7xl">
             {isLoading ? (
               <div className="flex items-center justify-center min-h-[60vh]">
@@ -246,29 +248,6 @@ export default function ExplorePage() {
               </div>
             ) : (
               <>
-            {/* Back to home link */}
-            {viewState.type === "topics" && (
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 text-indigo-100/80 hover:text-indigo-100 mb-6 transition-colors text-sm"
-              >
-                <span>←</span>
-                <span>Tillbaka till startsidan</span>
-              </Link>
-            )}
-
-            {/* Title (only on topics view) */}
-            {viewState.type === "topics" && (
-              <div className="text-center mb-8">
-                <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
-                  Utforska Ämnen 🔍
-                </h1>
-                <p className="text-xl text-indigo-100/80 drop-shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
-                  Lär dig om vetenskap, natur och historia genom interaktiva lektioner
-                </p>
-              </div>
-            )}
-
             {/* Conditional Content */}
             {!user ? (
               <div className="text-center py-16 max-w-md mx-auto">

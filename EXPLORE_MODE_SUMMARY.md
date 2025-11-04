@@ -277,3 +277,11 @@ The **Explore Mode** is **production-ready** with:
 **Ready to teach children about science, nature, and the world! 🌍✨**
 
 
+
+
+
+
+
+
+
+

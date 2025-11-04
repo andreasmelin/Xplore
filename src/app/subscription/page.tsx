@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
 import { PLANS } from "@/lib/stripe/client";
-import Link from "next/link";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -27,6 +26,7 @@ export default function SubscriptionPage() {
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [quota, setQuota] = useState<Quota>(null);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [managingBilling, setManagingBilling] = useState(false);
@@ -68,6 +68,7 @@ export default function SubscriptionPage() {
       } catch (error) {
         console.error("Init error:", error);
       } finally {
+        setIsLoading(false);
         setLoading(false);
       }
     }
@@ -115,7 +116,7 @@ export default function SubscriptionPage() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col relative">
         <AppHeader
           user={user}
           profiles={profiles}
@@ -125,20 +126,11 @@ export default function SubscriptionPage() {
           onOpenLogin={() => setLoginOpen(true)}
           onOpenAddProfile={() => {}}
           onOpenParentDashboard={() => router.push("/parent")}
+          isLoading={isLoading}
         />
 
-        <main className="flex-1 px-4 py-12">
+        <main className="flex-1 px-4 py-12 pt-24">
           <div className="max-w-4xl mx-auto">
-            <div className="mb-8">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 text-indigo-100/80 hover:text-indigo-100 transition-colors"
-              >
-                <span>←</span>
-                <span>Tillbaka till startsidan</span>
-              </Link>
-            </div>
-
             <h1 className="text-4xl font-bold text-white mb-8">
               Din Prenumeration
             </h1>
@@ -311,6 +303,7 @@ export default function SubscriptionPage() {
     </>
   );
 }
+
 
 
 

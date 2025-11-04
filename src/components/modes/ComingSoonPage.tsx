@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
 import AddProfileModal from "@/components/profile/AddProfileModal";
-import Link from "next/link";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -103,16 +102,8 @@ export default function ComingSoonPage({ title, icon, description, features = []
           onOpenParentDashboard={() => {}}
         />
 
-        <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+        <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 pt-24">
           <div className="max-w-2xl w-full text-center">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-indigo-100/80 hover:text-indigo-100 mb-8 transition-colors"
-            >
-              <span>←</span>
-              <span className="text-sm">Tillbaka till startsidan</span>
-            </Link>
-
             {/* Coming Soon Badge */}
             <div className="inline-block bg-yellow-500 text-black text-sm font-bold px-4 py-2 rounded-full shadow-lg mb-6 animate-pulse">
               Kommer snart

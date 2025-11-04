@@ -21,6 +21,7 @@ export default function HomePage() {
   const [addProfileOpen, setAddProfileOpen] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ttsVolume, setTtsVolume] = useState(0.7);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load audio settings from localStorage on mount
   useEffect(() => {
@@ -81,6 +82,8 @@ export default function HomePage() {
         if (!me) setLoginOpen(true);
       } catch {
         // ignore
+      } finally {
+        setIsLoading(false);
       }
     }
     void init();
@@ -138,7 +141,7 @@ export default function HomePage() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col relative">
         <AppHeader
           user={user}
           profiles={profiles}
@@ -152,19 +155,10 @@ export default function HomePage() {
           ttsVolume={ttsVolume}
           onTtsToggle={handleTtsToggle}
           onVolumeChange={handleVolumeChange}
+          isLoading={isLoading}
         />
 
-        <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-          {/* Hero Section */}
-          <div className="text-center mb-12 max-w-3xl">
-            <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
-              Välj ditt äventyr! 🚀
-            </h1>
-            <p className="text-xl text-indigo-100/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
-              Upptäck, lär dig och ha kul med Sinus – din personliga lärarrobot.
-            </p>
-          </div>
-
+        <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 pt-24">
           {/* Mode Selection Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full">
             <ModeCard
@@ -217,16 +211,7 @@ export default function HomePage() {
               gradient="bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500"
               comingSoon
             />
-
-            <ModeCard
-              title="Mina Framsteg"
-              description="Se dina framsteg, badges och vad du har lärt dig"
-              icon="⭐"
-              href="/progress"
-              gradient="bg-gradient-to-br from-indigo-500 via-blue-500 to-cyan-500"
-              comingSoon
-            />
-        </div>
+          </div>
 
           {/* Welcome Message for New Users */}
           {user && profiles.length === 0 && (

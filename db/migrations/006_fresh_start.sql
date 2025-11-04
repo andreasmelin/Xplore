@@ -145,3 +145,4 @@ $function$ LANGUAGE plpgsql;
 -- Success message
 SELECT 'Activity tracking tables created successfully!' as status;
 
+

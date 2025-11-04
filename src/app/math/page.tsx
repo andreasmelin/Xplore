@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
 import AddProfileModal from "@/components/profile/AddProfileModal";
-import Link from "next/link";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -20,6 +19,7 @@ export default function MathPage() {
   const [currentView, setCurrentView] = useState<"intro" | "topics">("intro");
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ttsVolume, setTtsVolume] = useState(0.7);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function init() {
@@ -54,6 +54,8 @@ export default function MathPage() {
         if (!me) setLoginOpen(true);
       } catch {
         // ignore
+      } finally {
+        setIsLoading(false);
       }
       
       // Load global audio settings
@@ -136,7 +138,7 @@ export default function MathPage() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col relative">
         <AppHeader
           user={user}
           profiles={profiles}
@@ -150,19 +152,11 @@ export default function MathPage() {
           ttsVolume={ttsVolume}
           onTtsToggle={handleTtsToggle}
           onVolumeChange={handleVolumeChange}
+          isLoading={isLoading}
         />
 
-        <main className="flex-1 px-4 py-8">
+        <main className="flex-1 px-4 py-8 pt-24">
           <div className="mx-auto max-w-6xl">
-            {/* Back to home link */}
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-indigo-100/80 hover:text-indigo-100 mb-6 transition-colors text-sm"
-            >
-              <span>←</span>
-              <span>Tillbaka till startsidan</span>
-            </Link>
-
             {currentView === "intro" ? (
               <MathIntro 
                 profileName={activeProfile?.name || "vän"}
@@ -443,10 +437,11 @@ function MathTopics({ profileAge, onBack }: { profileAge: number; onBack: () => 
       {/* Back button */}
       <button
         onClick={onBack}
-        className="inline-flex items-center gap-2 text-indigo-100/80 hover:text-indigo-100 mb-6 transition-colors text-sm"
+        className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-500 hover:bg-purple-400 text-white shadow-lg transition-colors mb-6"
+        aria-label="Tillbaka"
+        title="Tillbaka till introduktion"
       >
-        <span>←</span>
-        <span>Tillbaka till introduktion</span>
+        <span className="text-4xl">←</span>
       </button>
 
       {/* Visual Topic Grid - No text descriptions, just icons */}

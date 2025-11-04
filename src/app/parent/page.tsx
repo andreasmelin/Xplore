@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
-import Link from "next/link";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -50,6 +49,7 @@ export default function ParentDashboard() {
   const [quota, setQuota] = useState<Quota>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [timeRange, setTimeRange] = useState(7);
+  const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -88,6 +88,7 @@ export default function ParentDashboard() {
       } catch (error) {
         console.error("Init error:", error);
       } finally {
+        setIsLoading(false);
         setLoading(false);
       }
     }
@@ -175,7 +176,7 @@ export default function ParentDashboard() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col relative">
         <AppHeader
           user={user}
           profiles={profiles}
@@ -185,20 +186,13 @@ export default function ParentDashboard() {
           onOpenLogin={() => setLoginOpen(true)}
           onOpenAddProfile={() => {}}
           onOpenParentDashboard={() => {}}
+          isLoading={isLoading}
         />
 
-        <main className="flex-1 px-4 py-8">
+        <main className="flex-1 px-4 py-8 pt-24">
           <div className="max-w-7xl mx-auto">
             {/* Header */}
             <div className="mb-8">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 text-indigo-100/80 hover:text-indigo-100 mb-4 transition-colors"
-              >
-                <span>←</span>
-                <span>Tillbaka till startsidan</span>
-              </Link>
-
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <h1 className="text-4xl font-bold text-white">
                   📊 Framstegsrapport
