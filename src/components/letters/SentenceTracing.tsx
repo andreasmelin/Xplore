@@ -68,6 +68,7 @@ export default function SentenceTracing({
   // Debug logging for sentence tracing
   const [sentenceDebugLogs, setSentenceDebugLogs] = useState<string[]>([]);
   const [showSentenceDebug, setShowSentenceDebug] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   const addSentenceDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -78,7 +79,7 @@ export default function SentenceTracing({
     });
   };
 
-  // Force unmute function (similar to chat interface)
+  // Force unmute function with pre-created audio element
   function forceUnmute() {
     try {
       addSentenceDebugLog('🔊 FORCE_UNMUTE: Starting sentence tracing force unmute');
@@ -89,6 +90,7 @@ export default function SentenceTracing({
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         addSentenceDebugLog(`📱 Device: ${isIOS ? 'iOS' : 'Other'}, Browser: ${isSafari ? 'Safari' : 'Other'}`);
 
+        // Step 1: Create AudioContext if needed
         if (!audioCtxRef.current) {
           try {
             const w = window as unknown as { webkitAudioContext?: typeof AudioContext };
@@ -104,6 +106,7 @@ export default function SentenceTracing({
           }
         }
 
+        // Step 2: Resume AudioContext
         const ctx = audioCtxRef.current;
         if (ctx) {
           addSentenceDebugLog(`🎚️ AudioContext state before: ${ctx.state}`);
@@ -117,7 +120,7 @@ export default function SentenceTracing({
             addSentenceDebugLog('ℹ️ AudioContext already running');
           }
 
-          // Create silent oscillator to unlock audio
+          // Step 3: Create silent oscillator to unlock Web Audio
           try {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
@@ -131,24 +134,24 @@ export default function SentenceTracing({
           }
         }
 
-        // Try to use existing audio element, or create a temporary one for unlocking
-        let audioEl = audioRef.current;
+        // Step 4: Create and unlock HTML Audio element synchronously
+        if (!audioRef.current) {
+          addSentenceDebugLog('🎵 Creating pre-unlocked audio element');
+          const silentAudio = new Audio();
+          silentAudio.volume = 0.01;
+          silentAudio.muted = false;
+          try { silentAudio.setAttribute('playsinline', 'true'); } catch {}
 
-        if (!audioEl) {
-          addSentenceDebugLog('⚠️ No audio element found, creating temporary one for unlocking');
-          audioEl = new Audio();
-          audioEl.volume = 0.01; // Very quiet for unlocking
-          try { audioEl.setAttribute('playsinline', 'true'); } catch {}
+          // Try to "unlock" it immediately
+          void silentAudio.play().then(() => {
+            addSentenceDebugLog('✅ Silent audio element unlocked successfully');
+            setAudioUnlocked(true);
+          }).catch((error) => {
+            addSentenceDebugLog(`❌ Silent audio unlock failed: ${error}`);
+          });
+
+          audioRef.current = silentAudio;
         }
-
-        audioEl.muted = false;
-        audioEl.volume = audioEl.volume || volume;
-        try { audioEl.setAttribute('playsinline', 'true'); } catch {}
-        addSentenceDebugLog(`🔊 Audio element configured: volume=${audioEl.volume}, muted=${audioEl.muted}`);
-
-        void audioEl.play().catch((error) => {
-          addSentenceDebugLog(`❌ Audio element play failed: ${error}`);
-        });
 
         addSentenceDebugLog('✅ Force unmute process completed');
       } else {
@@ -200,9 +203,15 @@ export default function SentenceTracing({
       return;
     }
 
-    // Force unmute before playing TTS
-    addSentenceDebugLog('🔊 Force unmute before word TTS');
-    forceUnmute();
+    // Only force unmute if we haven't unlocked audio yet
+    if (!audioUnlocked) {
+      addSentenceDebugLog('🔊 Force unmute before word TTS (first time)');
+      forceUnmute();
+      // Add a small delay to allow unlocking to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } else {
+      addSentenceDebugLog('ℹ️ Audio already unlocked, skipping force unmute');
+    }
 
     try {
       const word = words[wordIndex];
@@ -235,8 +244,16 @@ export default function SentenceTracing({
 
         const audio = new Audio(url);
         audio.volume = volume;
+        audio.muted = false;
+        try { audio.setAttribute('playsinline', 'true'); } catch {}
+
+        // Use the pre-created audio element reference for consistency
+        if (audioRef.current && audioRef.current !== audio) {
+          audioRef.current.pause();
+        }
         audioRef.current = audio;
-        addSentenceDebugLog(`🔊 Audio element created with volume: ${volume}`);
+
+        addSentenceDebugLog(`🔊 Audio element created with volume: ${volume}, unlocked: ${audioUnlocked}`);
 
         audio.onended = () => {
           addSentenceDebugLog('✅ Word audio playback completed');
@@ -247,18 +264,46 @@ export default function SentenceTracing({
           addSentenceDebugLog('❌ Word audio playback error');
         };
 
-        // iOS requires audio.play() to happen within user gesture context
-        // Try to play immediately without additional async operations
-        addSentenceDebugLog('▶️ Attempting immediate word audio play (within user gesture)...');
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            addSentenceDebugLog('✅ Word audio started playing successfully');
-          }).catch((error) => {
-            addSentenceDebugLog(`❌ Word audio play prevented: ${error}`);
-          });
+        audio.oncanplay = () => {
+          addSentenceDebugLog('🎵 Audio can play - attempting playback...');
+        };
+
+        // Critical: Play immediately when ready, within user gesture context
+        if (audio.readyState >= 2) { // HAVE_CURRENT_DATA or better
+          addSentenceDebugLog('▶️ Audio ready - playing immediately');
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              addSentenceDebugLog('✅ Word audio started playing successfully');
+              setAudioUnlocked(true);
+            }).catch((error) => {
+              addSentenceDebugLog(`❌ Word audio play prevented: ${error}`);
+              if (error.name === 'NotAllowedError') {
+                addSentenceDebugLog('🔒 iOS blocked audio - user interaction required');
+                setAudioUnlocked(false); // Reset and try again next time
+              }
+            });
+          } else {
+            addSentenceDebugLog('⚠️ Audio play returned undefined');
+          }
         } else {
-          addSentenceDebugLog('⚠️ Audio play returned undefined (should not happen)');
+          addSentenceDebugLog('⏳ Audio not ready yet, waiting for canplay...');
+          audio.addEventListener('canplay', () => {
+            addSentenceDebugLog('▶️ Audio now ready - playing after canplay event');
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+              playPromise.then(() => {
+                addSentenceDebugLog('✅ Word audio started playing successfully (from canplay)');
+                setAudioUnlocked(true);
+              }).catch((error) => {
+                addSentenceDebugLog(`❌ Word audio play prevented (from canplay): ${error}`);
+                if (error.name === 'NotAllowedError') {
+                  addSentenceDebugLog('🔒 iOS blocked audio - user interaction required');
+                  setAudioUnlocked(false);
+                }
+              });
+            }
+          }, { once: true });
         }
       } else {
         addSentenceDebugLog(`❌ TTS API failed: ${response.status} ${response.statusText}`);
@@ -275,9 +320,15 @@ export default function SentenceTracing({
       return;
     }
 
-    // Force unmute before playing TTS
-    addSentenceDebugLog('🔊 Force unmute before sentence TTS');
-    forceUnmute();
+    // Only force unmute if we haven't unlocked audio yet
+    if (!audioUnlocked) {
+      addSentenceDebugLog('🔊 Force unmute before sentence TTS (first time)');
+      forceUnmute();
+      // Add a small delay to allow unlocking to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } else {
+      addSentenceDebugLog('ℹ️ Audio already unlocked, skipping force unmute');
+    }
 
     try {
       addSentenceDebugLog(`📝 Playing full sentence TTS: "${sentence}"`);
@@ -308,8 +359,16 @@ export default function SentenceTracing({
 
         const audio = new Audio(url);
         audio.volume = volume;
+        audio.muted = false;
+        try { audio.setAttribute('playsinline', 'true'); } catch {}
+
+        // Use the pre-created audio element reference for consistency
+        if (audioRef.current && audioRef.current !== audio) {
+          audioRef.current.pause();
+        }
         audioRef.current = audio;
-        addSentenceDebugLog(`🔊 Sentence audio element created with volume: ${volume}`);
+
+        addSentenceDebugLog(`🔊 Sentence audio element created with volume: ${volume}, unlocked: ${audioUnlocked}`);
 
         audio.onended = () => {
           addSentenceDebugLog('✅ Sentence audio playback completed');
@@ -320,18 +379,46 @@ export default function SentenceTracing({
           addSentenceDebugLog('❌ Sentence audio playback error');
         };
 
-        // iOS requires audio.play() to happen within user gesture context
-        // Try to play immediately without additional async operations
-        addSentenceDebugLog('▶️ Attempting immediate sentence audio play (within user gesture)...');
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            addSentenceDebugLog('✅ Sentence audio started playing successfully');
-          }).catch((error) => {
-            addSentenceDebugLog(`❌ Sentence audio play prevented: ${error}`);
-          });
+        audio.oncanplay = () => {
+          addSentenceDebugLog('🎵 Sentence audio can play - attempting playback...');
+        };
+
+        // Critical: Play immediately when ready, within user gesture context
+        if (audio.readyState >= 2) { // HAVE_CURRENT_DATA or better
+          addSentenceDebugLog('▶️ Sentence audio ready - playing immediately');
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              addSentenceDebugLog('✅ Sentence audio started playing successfully');
+              setAudioUnlocked(true);
+            }).catch((error) => {
+              addSentenceDebugLog(`❌ Sentence audio play prevented: ${error}`);
+              if (error.name === 'NotAllowedError') {
+                addSentenceDebugLog('🔒 iOS blocked sentence audio - user interaction required');
+                setAudioUnlocked(false);
+              }
+            });
+          } else {
+            addSentenceDebugLog('⚠️ Sentence audio play returned undefined');
+          }
         } else {
-          addSentenceDebugLog('⚠️ Sentence audio play returned undefined (should not happen)');
+          addSentenceDebugLog('⏳ Sentence audio not ready yet, waiting for canplay...');
+          audio.addEventListener('canplay', () => {
+            addSentenceDebugLog('▶️ Sentence audio now ready - playing after canplay event');
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+              playPromise.then(() => {
+                addSentenceDebugLog('✅ Sentence audio started playing successfully (from canplay)');
+                setAudioUnlocked(true);
+              }).catch((error) => {
+                addSentenceDebugLog(`❌ Sentence audio play prevented (from canplay): ${error}`);
+                if (error.name === 'NotAllowedError') {
+                  addSentenceDebugLog('🔒 iOS blocked sentence audio - user interaction required');
+                  setAudioUnlocked(false);
+                }
+              });
+            }
+          }, { once: true });
         }
       } else {
         addSentenceDebugLog(`❌ Sentence TTS API failed: ${response.status} ${response.statusText}`);
