@@ -1,7 +1,9 @@
 "use client";
 
+import React from "react";
+
 type Benefit = {
-  icon: JSX.Element;
+  icon: React.ReactElement;
   title: string;
   description: string;
 };
