@@ -113,15 +113,19 @@ export function useLessonAudio(enabled: boolean, volume: number) {
         throw new Error(`TTS failed: ${response.status}`);
       }
 
-      const data = await response.json() as { audioUrl?: string; cached?: boolean };
-      console.log('[Audio] ✅ Got TTS response:', { hasUrl: !!data.audioUrl, cached: data.cached });
-      
-      // If we got a URL directly (from cache), use it
-      if (data.audioUrl) {
-        console.log('[Audio] 🎵 Creating audio element with URL');
-        const audio = new Audio(data.audioUrl);
-        audio.volume = volume;
-        audioRef.current = audio;
+      // Check if response is JSON or audio file
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        // Response is JSON with audioUrl
+        const data = await response.json() as { audioUrl?: string; cached?: boolean };
+        console.log('[Audio] ✅ Got TTS JSON response:', { hasUrl: !!data.audioUrl, cached: data.cached });
+
+        if (data.audioUrl) {
+          console.log('[Audio] 🎵 Creating audio element with URL');
+          const audio = new Audio(data.audioUrl);
+          audio.volume = volume;
+          audioRef.current = audio;
 
         audio.onplay = () => {
           console.log('[Audio] ▶️ Audio started playing');
@@ -198,6 +202,57 @@ export function useLessonAudio(enabled: boolean, volume: number) {
           }
         } catch (error) {
           console.error("[TTS] Unexpected play error:", error);
+          setState("error");
+          URL.revokeObjectURL(url);
+        }
+      }
+      } else {
+        // Response is direct audio file (MP3)
+        console.log('[Audio] ✅ Got direct audio file response');
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        const audio = new Audio(url);
+        audio.volume = volume;
+        audioRef.current = audio;
+
+        audio.onplay = () => {
+          console.log('[Audio] ▶️ Direct audio started playing');
+          setState("playing");
+        };
+        audio.onpause = () => {
+          console.log('[Audio] ⏸️ Direct audio paused');
+          setState("paused");
+        };
+        audio.onended = () => {
+          console.log('[Audio] ⏹️ Direct audio ended');
+          setState("idle");
+          URL.revokeObjectURL(url);
+        };
+        audio.onerror = (e) => {
+          console.error("[Audio] ❌ Direct audio error:", e);
+          setState("error");
+          URL.revokeObjectURL(url);
+        };
+
+        // iOS-friendly play with proper error handling
+        try {
+          console.log('[Audio] 🎯 Attempting to play direct audio...');
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            await playPromise.catch((error) => {
+              if (error.name === 'NotAllowedError') {
+                console.log("[Audio] Play blocked - user interaction required");
+                setState("error");
+              } else if (error.name !== 'AbortError') {
+                console.error("[Audio] Play error:", error);
+                setState("error");
+              }
+              URL.revokeObjectURL(url);
+            });
+          }
+        } catch (error) {
+          console.error("[Audio] Unexpected play error:", error);
           setState("error");
           URL.revokeObjectURL(url);
         }
