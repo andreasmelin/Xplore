@@ -5,6 +5,8 @@ import AppHeader from "@/components/layout/AppHeader";
 import LoginModal from "@/components/auth/LoginModal";
 import AddProfileModal from "@/components/profile/AddProfileModal";
 import ChatInterface from "@/components/chat/ChatInterface";
+import { usePageTracking } from "@/lib/analytics/hooks";
+import AnalyticsProvider from "@/components/analytics/AnalyticsProvider";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -20,6 +22,9 @@ export default function ChatPage() {
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ttsVolume, setTtsVolume] = useState(0.7);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Analytics tracking
+  usePageTracking('chat_mode', 'learning');
 
   useEffect(() => {
     async function init() {

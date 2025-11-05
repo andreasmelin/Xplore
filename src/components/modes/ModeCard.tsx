@@ -10,6 +10,7 @@ type ModeCardProps = {
   href: string;
   gradient: string;
   comingSoon?: boolean;
+  onClick?: () => void;
 };
 
 export default function ModeCard({
@@ -19,6 +20,7 @@ export default function ModeCard({
   href,
   gradient,
   comingSoon = false,
+  onClick,
 }: ModeCardProps) {
   const card = (
     <div
@@ -27,6 +29,7 @@ export default function ModeCard({
           ? "opacity-40 cursor-not-allowed blur-[2px]"
           : "hover:scale-105 hover:shadow-[0_0_40px_rgba(99,102,241,0.3)] cursor-pointer"
       }`}
+      onClick={onClick}
     >
       {/* Gradient Background */}
       <div

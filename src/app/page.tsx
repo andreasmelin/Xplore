@@ -6,6 +6,8 @@ import ModeCard from "@/components/modes/ModeCard";
 import LoginModal from "@/components/auth/LoginModal";
 import AddProfileModal from "@/components/profile/AddProfileModal";
 import { useRouter } from "next/navigation";
+import { usePageTracking, useClickTracking } from "@/lib/analytics/hooks";
+import AnalyticsProvider from "@/components/analytics/AnalyticsProvider";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -22,6 +24,10 @@ export default function HomePage() {
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ttsVolume, setTtsVolume] = useState(0.7);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Analytics tracking
+  usePageTracking('home', 'navigation');
+  const { trackClick } = useClickTracking();
 
   // Load audio settings from localStorage on mount
   useEffect(() => {
@@ -140,7 +146,7 @@ export default function HomePage() {
   }
 
   return (
-    <>
+    <AnalyticsProvider profileId={activeProfileId}>
       <div className="min-h-screen flex flex-col relative">
         <AppHeader
           user={user}
@@ -167,6 +173,7 @@ export default function HomePage() {
               icon="💬"
               href="/chat"
               gradient="bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600"
+              onClick={() => trackClick('mode_card_chat', 'navigation')}
             />
 
             <ModeCard
@@ -175,6 +182,7 @@ export default function HomePage() {
               icon="✍️"
               href="/letters"
               gradient="bg-gradient-to-br from-red-500 via-yellow-500 to-pink-500"
+              onClick={() => trackClick('mode_card_letters', 'navigation')}
             />
 
             <ModeCard
@@ -183,6 +191,7 @@ export default function HomePage() {
               icon="🔍"
               href="/explore"
               gradient="bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500"
+              onClick={() => trackClick('mode_card_explore', 'navigation')}
             />
 
             <ModeCard
@@ -192,6 +201,7 @@ export default function HomePage() {
               href="/math"
               gradient="bg-gradient-to-br from-amber-500 via-yellow-500 to-lime-500"
               comingSoon
+              onClick={() => trackClick('mode_card_math', 'navigation')}
             />
 
             <ModeCard
@@ -265,6 +275,6 @@ export default function HomePage() {
         onClose={() => setAddProfileOpen(false)}
         onSuccess={handleProfileCreated}
       />
-    </>
+    </AnalyticsProvider>
   );
 }

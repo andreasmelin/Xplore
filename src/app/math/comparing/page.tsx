@@ -7,6 +7,8 @@ import AddProfileModal from "@/components/profile/AddProfileModal";
 import Link from "next/link";
 import { COMPARING_LESSON, ComparisonActivity } from "@/lib/math/comparing-data";
 import { logMathActivity } from "@/lib/activity-logger";
+import { usePageTracking, useFeatureTracking } from "@/lib/analytics/hooks";
+import AnalyticsProvider from "@/components/analytics/AnalyticsProvider";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -19,7 +21,11 @@ export default function ComparingPage() {
   const [quota, setQuota] = useState<Quota>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [addProfileOpen, setAddProfileOpen] = useState(false);
-  
+
+  // Analytics tracking
+  usePageTracking('math_comparing', 'learning');
+  const { trackComplete } = useFeatureTracking('math_comparing_game', 'learning', false);
+
   // Lesson state
   const [currentView, setCurrentView] = useState<"intro" | "activity" | "celebration">("intro");
   const [currentActivityIndex, setCurrentActivityIndex] = useState(0);

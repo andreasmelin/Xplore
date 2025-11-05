@@ -10,6 +10,8 @@ import DualLetterTracing from "@/components/letters/DualLetterTracing";
 import SentenceInput from "@/components/letters/SentenceInput";
 import SentenceTracing from "@/components/letters/SentenceTracing";
 import ModeCard from "@/components/modes/ModeCard";
+import { usePageTracking, useClickTracking } from "@/lib/analytics/hooks";
+import AnalyticsProvider from "@/components/analytics/AnalyticsProvider";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -28,6 +30,10 @@ export default function LettersPage() {
   const [sentence, setSentence] = useState<string | null>(null); // Track custom sentence
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [volume, setVolume] = useState(0.7);
+
+  // Analytics tracking
+  usePageTracking('letters_mode', 'learning');
+  const { trackClick } = useClickTracking();
   
   // User and profile state
   const [user, setUser] = useState<User>(null);

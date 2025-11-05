@@ -8,6 +8,9 @@ import TopicBrowser from "@/components/explore/TopicBrowser";
 import LessonList from "@/components/explore/LessonList";
 import LessonViewer from "@/components/explore/LessonViewer";
 import { EXPLORE_TOPICS, Topic, Lesson } from "@/lib/explore/topics-data";
+import { usePageTracking, useClickTracking } from "@/lib/analytics/hooks";
+import AnalyticsProvider from "@/components/analytics/AnalyticsProvider";
+import { analytics } from "@/lib/analytics/tracker";
 
 type User = { id: string; email: string } | null;
 type Profile = { id: string; name: string; age: number };
@@ -29,6 +32,10 @@ export default function ExplorePage() {
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Analytics tracking
+  usePageTracking('explore_mode', 'navigation');
+  const { trackClick } = useClickTracking();
   
   // TTS state - using global audio settings
   const [ttsEnabled, setTtsEnabled] = useState(() => {
@@ -155,11 +162,16 @@ export default function ExplorePage() {
 
   function handleSelectTopic(topic: Topic) {
     setViewState({ type: "lessons", topic });
+    trackClick(`explore_topic_${topic.id}`, 'navigation', { topic_name: topic.title });
   }
 
   function handleSelectLesson(lesson: Lesson) {
     if (viewState.type === "lessons") {
       setViewState({ type: "lesson", topic: viewState.topic, lesson });
+      analytics.trackFeatureStart(`explore_lesson_${lesson.id}`, 'learning', {
+        topic_id: viewState.topic.id,
+        lesson_title: lesson.title,
+      });
     }
   }
 
@@ -219,7 +231,7 @@ export default function ExplorePage() {
   }
 
   return (
-    <>
+    <AnalyticsProvider profileId={activeProfileId}>
       <div className="min-h-screen flex flex-col relative">
         <AppHeader
           user={user}
@@ -336,6 +348,6 @@ export default function ExplorePage() {
         onClose={() => setAddProfileOpen(false)}
         onSuccess={handleProfileCreated}
       />
-    </>
+    </AnalyticsProvider>
   );
 }
