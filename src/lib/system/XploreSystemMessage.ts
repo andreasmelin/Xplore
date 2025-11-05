@@ -14,7 +14,6 @@ export function buildXploreSystemMessage(options: SystemMessageOptions = {}): st
   const childName = options.childName?.trim() || "";
   const interests = options.interests?.trim() || "";
   const recentContext = options.recentContext?.trim();
-  const _suggested = options.suggestedTopics?.trim();
 
   const nameLine = childName ? `Barnets namn: ${childName}.` : ``;
   const interestsLine = interests ? `Intressen: ${interests}.` : ``;

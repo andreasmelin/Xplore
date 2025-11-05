@@ -42,7 +42,7 @@ export function useFeatureTracking(
     };
   }, [featureName, category, autoStart]);
 
-  const trackComplete = (properties?: Record<string, any>) => {
+  const trackComplete = (properties?: Record<string, unknown>) => {
     if (hasStartedRef.current) {
       const duration = Date.now() - startTimeRef.current;
       analytics.trackFeatureComplete(featureName, duration, category, properties);
@@ -50,7 +50,7 @@ export function useFeatureTracking(
     }
   };
 
-  const trackStart = (properties?: Record<string, any>) => {
+  const trackStart = (properties?: Record<string, unknown>) => {
     if (!hasStartedRef.current) {
       analytics.trackFeatureStart(featureName, category, properties);
       startTimeRef.current = Date.now();
@@ -58,7 +58,7 @@ export function useFeatureTracking(
     }
   };
 
-  const trackAbandon = (properties?: Record<string, any>) => {
+  const trackAbandon = (properties?: Record<string, unknown>) => {
     if (hasStartedRef.current) {
       const duration = Date.now() - startTimeRef.current;
       analytics.trackFeatureAbandon(featureName, duration, category, properties);
@@ -73,7 +73,7 @@ export function useFeatureTracking(
  * Hook to track clicks on elements
  */
 export function useClickTracking() {
-  const trackClick = (elementName: string, category: EventCategory = 'interaction', properties?: Record<string, any>) => {
+  const trackClick = (elementName: string, category: EventCategory = 'interaction', properties?: Record<string, unknown>) => {
     analytics.trackClick(elementName, category, properties);
   };
 
