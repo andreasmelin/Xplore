@@ -201,11 +201,30 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Types for database query results
+interface FeaturePopularity {
+  event_name: string;
+  total_uses: number;
+  unique_users: number;
+  completion_rate: number;
+}
+
+interface AbandonmentRate {
+  event_name: string;
+  abandonment_rate: number;
+}
+
+interface UserFlow {
+  from_feature: string;
+  to_feature: string;
+  transition_count: number;
+}
+
 // Generate AI-friendly insights from the data
 function generateInsights(
-  featurePopularity: any[] | null,
-  abandonmentRates: any[] | null,
-  userFlows: any[] | null
+  featurePopularity: FeaturePopularity[] | null,
+  abandonmentRates: AbandonmentRate[] | null,
+  userFlows: UserFlow[] | null
 ) {
   const insights: string[] = [];
 

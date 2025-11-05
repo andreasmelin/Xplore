@@ -74,22 +74,22 @@ export default function AnalyticsPage() {
   }, []);
 
   useEffect(() => {
+    async function loadAnalytics() {
+      try {
+        const res = await fetch(`/api/analytics/insights?days=${days}&format=summary`);
+        if (res.ok) {
+          const data = await res.json();
+          setAnalytics(data);
+        }
+      } catch (error) {
+        console.error("Failed to load analytics:", error);
+      }
+    }
+
     if (user) {
       loadAnalytics();
     }
   }, [user, days]);
-
-  async function loadAnalytics() {
-    try {
-      const res = await fetch(`/api/analytics/insights?days=${days}&format=summary`);
-      if (res.ok) {
-        const data = await res.json();
-        setAnalytics(data);
-      }
-    } catch (error) {
-      console.error("Failed to load analytics:", error);
-    }
-  }
 
   function handleLoginSuccess(newUser: User) {
     setUser(newUser);

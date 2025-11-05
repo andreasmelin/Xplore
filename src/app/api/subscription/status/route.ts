@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserSubscription, getUserPlan } from '@/lib/stripe/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     // Get user from session
     const supabase = await createSupabaseServerClient();
