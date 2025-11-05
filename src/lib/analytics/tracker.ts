@@ -22,7 +22,7 @@ export interface AnalyticsEvent {
   eventType: EventType;
   eventName: string;
   eventCategory?: EventCategory;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
   durationMs?: number;
   referrer?: string;
 }
@@ -134,7 +134,7 @@ class AnalyticsTracker {
   }
 
   // Track feature start
-  trackFeatureStart(featureName: string, category: EventCategory = 'learning', properties?: Record<string, any>) {
+  trackFeatureStart(featureName: string, category: EventCategory = 'learning', properties?: Record<string, unknown>) {
     this.trackEvent({
       eventType: 'feature_start',
       eventName: featureName,
@@ -144,7 +144,7 @@ class AnalyticsTracker {
   }
 
   // Track feature completion
-  trackFeatureComplete(featureName: string, durationMs: number, category: EventCategory = 'learning', properties?: Record<string, any>) {
+  trackFeatureComplete(featureName: string, durationMs: number, category: EventCategory = 'learning', properties?: Record<string, unknown>) {
     this.trackEvent({
       eventType: 'feature_complete',
       eventName: featureName,
@@ -155,7 +155,7 @@ class AnalyticsTracker {
   }
 
   // Track feature abandonment
-  trackFeatureAbandon(featureName: string, durationMs: number, category: EventCategory = 'learning', properties?: Record<string, any>) {
+  trackFeatureAbandon(featureName: string, durationMs: number, category: EventCategory = 'learning', properties?: Record<string, unknown>) {
     this.trackEvent({
       eventType: 'feature_abandon',
       eventName: featureName,
@@ -166,7 +166,7 @@ class AnalyticsTracker {
   }
 
   // Track a click/interaction
-  trackClick(elementName: string, category: EventCategory = 'interaction', properties?: Record<string, any>) {
+  trackClick(elementName: string, category: EventCategory = 'interaction', properties?: Record<string, unknown>) {
     this.trackEvent({
       eventType: 'click',
       eventName: elementName,
@@ -322,7 +322,7 @@ export function getAnalyticsTracker(): AnalyticsTracker {
       trackFeatureComplete: () => {},
       trackFeatureAbandon: () => {},
       trackClick: () => {},
-    } as any;
+    } as unknown as AnalyticsTracker;
   }
 
   if (!trackerInstance) {
@@ -337,16 +337,16 @@ export function useFeatureTracker(featureName: string, category: EventCategory =
   const tracker = getAnalyticsTracker();
   const startTime = Date.now();
 
-  const start = (properties?: Record<string, any>) => {
+  const start = (properties?: Record<string, unknown>) => {
     tracker.trackFeatureStart(featureName, category, properties);
   };
 
-  const complete = (properties?: Record<string, any>) => {
+  const complete = (properties?: Record<string, unknown>) => {
     const duration = Date.now() - startTime;
     tracker.trackFeatureComplete(featureName, duration, category, properties);
   };
 
-  const abandon = (properties?: Record<string, any>) => {
+  const abandon = (properties?: Record<string, unknown>) => {
     const duration = Date.now() - startTime;
     tracker.trackFeatureAbandon(featureName, duration, category, properties);
   };
@@ -360,12 +360,12 @@ export const analytics = {
   stop: () => getAnalyticsTracker().stop(),
   trackPageView: (pageName: string, category?: EventCategory) =>
     getAnalyticsTracker().trackPageView(pageName, category),
-  trackFeatureStart: (name: string, category?: EventCategory, props?: Record<string, any>) =>
+  trackFeatureStart: (name: string, category?: EventCategory, props?: Record<string, unknown>) =>
     getAnalyticsTracker().trackFeatureStart(name, category, props),
-  trackFeatureComplete: (name: string, duration: number, category?: EventCategory, props?: Record<string, any>) =>
+  trackFeatureComplete: (name: string, duration: number, category?: EventCategory, props?: Record<string, unknown>) =>
     getAnalyticsTracker().trackFeatureComplete(name, duration, category, props),
-  trackFeatureAbandon: (name: string, duration: number, category?: EventCategory, props?: Record<string, any>) =>
+  trackFeatureAbandon: (name: string, duration: number, category?: EventCategory, props?: Record<string, unknown>) =>
     getAnalyticsTracker().trackFeatureAbandon(name, duration, category, props),
-  trackClick: (element: string, category?: EventCategory, props?: Record<string, any>) =>
+  trackClick: (element: string, category?: EventCategory, props?: Record<string, unknown>) =>
     getAnalyticsTracker().trackClick(element, category, props),
 };

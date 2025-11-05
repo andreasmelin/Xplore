@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       .rpc('get_feature_popularity', {
         p_days: days,
         p_limit: 20,
-      });
+      }) as { data: FeaturePopularity[] | null; error: unknown };
 
     if (fpError) {
       console.error('Error getting feature popularity:', fpError);
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
       .rpc('get_user_flows', {
         p_days: days,
         p_limit: 20,
-      });
+      }) as { data: UserFlow[] | null; error: unknown };
 
     if (ufError) {
       console.error('Error getting user flows:', ufError);
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
     const { data: abandonmentRates, error: arError } = await supabase
       .rpc('get_abandonment_rates', {
         p_days: days,
-      });
+      }) as { data: AbandonmentRate[] | null; error: unknown };
 
     if (arError) {
       console.error('Error getting abandonment rates:', arError);
